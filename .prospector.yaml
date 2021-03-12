@@ -1,0 +1,77 @@
+allow-shorthand: false
+
+ignore-paths:
+  - docs
+
+ignore-patterns:
+  - (^|/)\..+
+
+max-line-length: 88
+
+bandit:
+  run: true
+  options:
+    config: .bandit.yaml
+
+dodgy:
+  run: true
+
+flakes:
+  run: true
+  disable:
+    - F403
+    - F810
+
+mccabe:
+  run: true
+  options:
+    max-complexity: 10
+
+mypy:
+  run: true
+  options:
+    ignore-missing-imports: true
+    follow-imports: skip
+
+pep8:
+  run: true
+  options:
+    single-line-if-stmt: n
+
+pep257:
+  run: true
+  disable:
+    - D000
+    - D203
+    - D213
+    - D406
+    - D407
+
+pylint:
+  run: true
+  disable:
+    - fixme
+    - bad-continuation
+
+  options:
+    max-locals: 15
+    max-returns: 6
+    max-branches: 12
+    max-statements: 50
+    max-parents: 7
+    max-attributes: 7
+    min-public-methods: 2
+    max-public-methods: 20
+    max-module-lines: 1000
+    max-line-length: 79
+
+pyroma:
+  run: false
+  disable:
+    - PYR19
+    - PYR16
+    - PYR15
+    - PYR18
+
+vulture:
+  run: true
