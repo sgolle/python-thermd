@@ -52,6 +52,7 @@ pylint:
   disable:
     - fixme
     - bad-continuation
+    - too-many-arguments
 
   options:
     max-locals: 15
@@ -74,4 +75,4 @@ pyroma:
     - PYR18
 
 vulture:
-  run: true
+  run: false
