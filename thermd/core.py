@@ -357,14 +357,6 @@ class BaseSystemClass(ABC):
         for port in self.__ports:
             self.__network[port]["node_class"].check()
 
-        # Check all states
-        for state in self.__states:
-            self.__network[state]["node_class"].check()
-
-        # Check all signals
-        for signal in self.__signals:
-            self.__network[signal]["node_class"].check()
-
     # def plot_graph(self: BaseSystemClass):
     #     ...
 
@@ -395,7 +387,6 @@ class BaseModelClass(ABC):
         return self.__name
 
     @property
-    @abstractmethod
     def ports(self: BaseModelClass) -> List[BasePortClass]:
         ...
 
@@ -496,8 +487,8 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def cp(self: BaseStateClass) -> np.float64:
-        """Specific heat at constant pressure in J/kg/K.
+    def cpmass(self: BaseStateClass) -> np.float64:
+        """Mass-specific heat at constant pressure in J/kg/K.
 
         Returns:
             np.float64: Specific heat at constant pressure in J/kg/K
@@ -507,8 +498,19 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def cv(self: BaseStateClass) -> np.float64:
-        """Specific heat at constant volume in J/kg/K.
+    def cpmolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific heat at constant pressure in J/mol/K.
+
+        Returns:
+            np.float64: Specific heat at constant pressure in J/mol/K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def cvmass(self: BaseStateClass) -> np.float64:
+        """Mass-specific heat at constant volume in J/kg/K.
 
         Returns:
             np.float64: Specific heat at constant volume in J/kg/K
@@ -518,11 +520,33 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def h(self: BaseStateClass) -> np.float64:
+    def cvmolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific heat at constant volume in J/mol/K.
+
+        Returns:
+            np.float64: Specific heat at constant volume in J/mol/K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def hmass(self: BaseStateClass) -> np.float64:
         """Mass-specific enthalpy in J/kg.
 
         Returns:
             np.float64: Mass-specific enthalpy in J/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def hmolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific enthalpy in J/mol.
+
+        Returns:
+            np.float64: Mass-specific enthalpy in J/mol
 
         """
         ...
@@ -562,11 +586,22 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def density(self: BaseStateClass) -> np.float64:
-        """Density in kg/m**3.
+    def rhomass(self: BaseStateClass) -> np.float64:
+        """Mass-specific density in kg/m**3.
 
         Returns:
             np.float64: Density in kg/m**3
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def rhomolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific density in mol/m**3.
+
+        Returns:
+            np.float64: Density in mol/m**3
 
         """
         ...
@@ -595,11 +630,22 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def s(self: BaseStateClass) -> np.float64:
+    def smass(self: BaseStateClass) -> np.float64:
         """Mass-specific entropy in J/kg/K.
 
         Returns:
             np.float64: Mass-specific entropy in J/kg/K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def smolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific entropy in J/mol/K.
+
+        Returns:
+            np.float64: Mass-specific entropy in J/mol/K
 
         """
         ...
@@ -617,8 +663,8 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def v(self: BaseStateClass) -> np.float64:
-        """Specific volume in m**3/kg.
+    def vmass(self: BaseStateClass) -> np.float64:
+        """Mass-specific volume in m**3/kg.
 
         Returns:
             np.float64: Specific volume in m**3/kg
@@ -628,11 +674,22 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def x(self: BaseStateClass) -> np.float64:
-        """Quality.
+    def vmolar(self: BaseStateClass) -> np.float64:
+        """Molar-specific volume in m**3/mol.
 
         Returns:
-            np.float64: Quality
+            np.float64: Specific volume in m**3/mol
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def x(self: BaseStateClass) -> np.float64:
+        """Vapor quality.
+
+        Returns:
+            np.float64: Vapor quality
 
         """
         ...
@@ -646,10 +703,6 @@ class BaseStateClass(ABC):
             np.float64: Compressibility factor
 
         """
-        ...
-
-    @abstractmethod
-    def check(self: BaseStateClass):
         ...
 
 
@@ -673,10 +726,6 @@ class BaseSignalClass(ABC):
     @property
     def name(self: BaseSignalClass) -> str:
         return self.__name
-
-    @abstractmethod
-    def check(self: BaseSignalClass):
-        ...
 
 
 # System classes
@@ -722,6 +771,96 @@ class PortSignal(BasePortClass):
     """
 
     def check(self: PortSignal):
+        ...
+
+
+# State/ media classes
+class MediumPure(BaseStateClass):
+    """Class of pure or pseudo-pure (mixtures) media.
+
+    The medium class of pure fluids provides the API for all derived
+    medium classes with pure or pseudo-pure (mixtures) behavior, hence only 
+    two state values need to be given to define the state.
+
+    """
+
+    @abstractmethod
+    def set_pT(self: BaseStateClass, p: np.float64, T: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_px(self: BaseStateClass, p: np.float64, x: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tx(self: BaseStateClass, T: np.float64, x: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_ph(self: BaseStateClass, p: np.float64, h: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Th(self: BaseStateClass, T: np.float64, h: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_ps(self: BaseStateClass, p: np.float64, s: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Ts(self: BaseStateClass, T: np.float64, s: np.float64,) -> None:
+        ...
+
+
+class MediumBinaryMixture(BaseStateClass):
+    """Class of binary mixtures media.
+
+    The medium class of binary mixtures provides the API for all derived
+    medium classes with two pure or pseudo-pure but uneven components (e. g. humid air),
+    hence three state values need to be given to define the state.
+
+    """
+
+    @property
+    @abstractmethod
+    def w(self: BaseStateClass) -> np.float64:
+        """Mass ratio.
+
+        Returns:
+            np.float64: Mass ratio
+
+        """
+        ...
+
+    @abstractmethod
+    def set_pTw(
+        self: BaseStateClass, p: np.float64, T: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_phw(
+        self: BaseStateClass, p: np.float64, h: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Thw(
+        self: BaseStateClass, T: np.float64, h: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_psw(
+        self: BaseStateClass, p: np.float64, s: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tsw(
+        self: BaseStateClass, T: np.float64, s: np.float64, w: np.float64
+    ) -> None:
         ...
 
 
