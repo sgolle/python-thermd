@@ -8,9 +8,12 @@ Library of 1-dimensional (modelica-like) models. Core file with the API of the l
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Tuple, Dict, Union  # , Type, TypeVar
+from pathlib import Path
+from typing import List, Dict, Type, Union  # , Union, Dict, Tuple, Type, TypeVar
 
+from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
 
@@ -26,13 +29,61 @@ class NodeTypes(Enum):
     MODEL = auto()
     BLOCK = auto()
     PORT = auto()
-    STATE = auto()
-    SIGNAL = auto()
 
 
-class PortFunctions(Enum):
+class PortFunctionTypes(Enum):
     INLET = auto()
     OUTLET = auto()
+
+
+# Result classes
+class BaseResultClass(ABC):
+    ...
+
+
+@dataclass
+class SystemResult(BaseResultClass):
+    states: List[BaseStateClass]
+    success: bool
+    status: np.int8
+    message: str
+    nit: np.int16
+
+    @classmethod
+    def from_success(
+        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+    ) -> SystemResult:
+        return cls(
+            states=states,
+            success=True,
+            status=np.int8(0),
+            message="Solver finished successfully.",
+            nit=nit,
+        )
+
+    @classmethod
+    def from_error(
+        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+    ) -> SystemResult:
+        return cls(
+            states=states,
+            success=False,
+            status=np.int8(-1),
+            message="Solver didn't finish successfully.",
+            nit=nit,
+        )
+
+    @classmethod
+    def from_convergence(
+        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+    ) -> SystemResult:
+        return cls(
+            states=states,
+            success=False,
+            status=np.int8(1),
+            message="Solver didn't converge successfully.",
+            nit=nit,
+        )
 
 
 # Base classes
@@ -52,17 +103,22 @@ class BaseSystemClass(ABC):
         Init function of the base system class.
 
         """
-        # Model parameter
-        if "keyname" in kwargs:
-            # TODO
-            pass
+        # System parameter
+        self.__stop_criterion_energy: Union[np.float64, None] = None
+        self.__stop_criterion_momentum: Union[np.float64, None] = None
+        self.__stop_criterion_mass: Union[np.float64, None] = None
+
+        if "stop_criterion_energy" in kwargs:
+            self.__stop_criterion_energy = kwargs["stop_criterion_energy"]
+        if "stop_criterion_momentum" in kwargs:
+            self.__stop_criterion_momentum = kwargs["stop_criterion_momentum"]
+        if "stop_criterion_mass" in kwargs:
+            self.__stop_criterion_mass = kwargs["stop_criterion_mass"]
 
         # Initialize index lists of models, blocks, ports, states and signals
         self.__models: List[str] = list()
         self.__blocks: List[str] = list()
         self.__ports: List[str] = list()
-        self.__states: List[str] = list()
-        self.__signals: List[str] = list()
 
         # Initialize main graph
         self.__network = nx.DiGraph()
@@ -225,7 +281,9 @@ class BaseSystemClass(ABC):
     def is_frozen(self: BaseSystemClass):
         self.__network.is_frozen()
 
-    def add_model(self: BaseSystemClass, node_class: BaseModelClass):
+    def add_model(
+        self: BaseSystemClass, node_class: BaseModelClass,
+    ):
 
         logger.info("Add model: %s", node_class.name)
 
@@ -241,20 +299,20 @@ class BaseSystemClass(ABC):
 
             logger.info("Add port: %s", port.name)
 
-            self.__network.add_node(
-                port.name, node_type=NodeTypes.PORT, node_class=port
-            )
+            self.__network.add_node(port.name, node_type=NodeTypes.PORT)
             self.__ports.append(port.name)
 
-            if port.port_function == PortFunctions.INLET:
+            if port.port_function == PortFunctionTypes.INLET:
                 self.__network.add_edge(port.name, node_class.name)
-            elif port.port_function == PortFunctions.OUTLET:
+            elif port.port_function == PortFunctionTypes.OUTLET:
                 self.__network.add_edge(node_class.name, port.name)
             else:
                 logger.error("Wrong port function: %s", port.port_function)
                 raise SystemExit
 
-    def add_block(self: BaseSystemClass, node_class: BaseBlockClass):
+    def add_block(
+        self: BaseSystemClass, node_class: BaseBlockClass,
+    ):
 
         logger.info("Add block: %s", node_class.name)
 
@@ -270,98 +328,77 @@ class BaseSystemClass(ABC):
 
             logger.info("Add port: %s", port.name)
 
-            self.__network.add_node(
-                port.name, node_type=NodeTypes.PORT, node_class=port
-            )
+            self.__network.add_node(port.name, node_type=NodeTypes.PORT)
             self.__ports.append(port.name)
 
-            if port.port_function == PortFunctions.INLET:
+            if port.port_function == PortFunctionTypes.INLET:
                 self.__network.add_edge(port.name, node_class.name)
-            elif port.port_function == PortFunctions.OUTLET:
+            elif port.port_function == PortFunctionTypes.OUTLET:
                 self.__network.add_edge(node_class.name, port.name)
             else:
                 logger.error("Wrong port function: %s", port.port_function)
                 raise SystemExit
 
     def connect(
-        self: BaseSystemClass,
-        port1: BasePortClass,
-        port2: BasePortClass,
-        connector: Union[BaseStateClass, BaseSignalClass],
+        self: BaseSystemClass, port1: BasePortClass, port2: BasePortClass,
     ):
         if port1.__class__.__name__ == port2.__class__.__name__:
 
-            if isinstance(port1, PortState):
-                self.__network.add_node(
-                    connector.name, node_type=NodeTypes.STATE, node_class=connector
-                )
+            self.__network.add_edge(port1.name, port2.name)
 
-                self.__network.add_edge(port1.name, connector.name)
-                self.__network.add_edge(connector.name, port2.name)
-                self.__states.append(connector.name)
-
-            elif isinstance(port1, PortSignal):
-                self.__network.add_node(
-                    connector.name, node_type=NodeTypes.SIGNAL, node_class=connector
-                )
-
-                self.__network.add_edge(port1.name, connector.name)
-                self.__network.add_edge(connector.name, port2.name)
-                self.__signals.append(connector.name)
-
-            else:
-                logger.error("Wrong port type: %s ", port1.__class__.__name__)
-                raise SystemExit
         else:
             logger.error("Port types not compatible: %s <-> %s", port1.name, port2.name)
             raise SystemExit
 
-    def get_inlet_connector(
-        self: BaseSystemClass, port_name: str
-    ) -> Union[BaseStateClass, BaseSignalClass]:
-        connector = None
-        for connector_node in self.__network.predecessors(port_name):
-            connector = connector_node["node_class"]
+    # def get_inlet_connector(
+    #     self: BaseSystemClass, port_name: str
+    # ) -> Union[BaseStateClass, BaseSignalClass]:
+    #     connector = None
+    #     for connector_node in self.__network.predecessors(port_name):
+    #         connector = connector_node["node_class"]
 
-        if connector is None:
-            logger.error(
-                "Port %s does not have a predecessor connector node!", port_name
-            )
-            raise SystemExit
+    #     if connector is None:
+    #         logger.error(
+    #             "Port %s does not have a predecessor connector node!", port_name
+    #         )
+    #         raise SystemExit
 
-        return connector
+    #     return connector
 
-    def get_outlet_connector(
-        self: BaseSystemClass, port_name: str
-    ) -> Union[BaseStateClass, BaseSignalClass]:
-        connector = None
-        for connector_node in self.__network.successors(port_name):
-            connector = connector_node["node_class"]
+    # def get_outlet_connector(
+    #     self: BaseSystemClass, port_name: str
+    # ) -> Union[BaseStateClass, BaseSignalClass]:
+    #     connector = None
+    #     for connector_node in self.__network.successors(port_name):
+    #         connector = connector_node["node_class"]
 
-        if connector is None:
-            logger.error("Port %s does not have a successor connector node!", port_name)
-            raise SystemExit
+    #     if connector is None:
+    #         logger.error("Port %s does not have a successor connector node!", port_name)
+    #         raise SystemExit
 
-        return connector
+    #     return connector
 
     def check(self: BaseSystemClass):
         # Check all models
         for model in self.__models:
-            self.__network[model]["node_class"].check()
+            if not self.__network[model]["node_class"].check():
+                logger.error("Model %s shows an error.", model)
 
         # Check all blocks
         for block in self.__blocks:
-            self.__network[block]["node_class"].check()
+            if not self.__network[block]["node_class"].check():
+                logger.error("Block %s shows an error.", block)
 
-        # Check all ports
-        for port in self.__ports:
-            self.__network[port]["node_class"].check()
-
-    # def plot_graph(self: BaseSystemClass):
-    #     ...
+    def plot_graph(self: BaseSystemClass, path: Path):
+        nx.draw(self.__network, with_labels=True)
+        plt.savefig(path)
 
     @abstractmethod
-    def solve(self: BaseSystemClass):
+    def stop_criterion(self: BaseSystemClass) -> bool:
+        ...
+
+    @abstractmethod
+    def solve(self: BaseSystemClass) -> SystemResult:
         ...
 
 
@@ -382,12 +419,33 @@ class BaseModelClass(ABC):
         # Class properties
         self.__name = name
 
+        # Balances
+        self.__energy_balance = np.float64(0.0)
+        self.__momentum_balance = np.float64(0.0)
+        self.__mass_balance = np.float64(0.0)
+
     @property
     def name(self: BaseModelClass) -> str:
         return self.__name
 
     @property
+    @abstractmethod
     def ports(self: BaseModelClass) -> List[BasePortClass]:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_energy(self: BaseModelClass) -> np.float64:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_momentum(self: BaseModelClass) -> np.float64:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_mass(self: BaseModelClass) -> np.float64:
         ...
 
     @abstractmethod
@@ -395,7 +453,31 @@ class BaseModelClass(ABC):
         ...
 
     @abstractmethod
-    def equation(self: BaseModelClass) -> BaseStateClass:
+    def set_port_state(
+        self: BaseModelClass, port_name: str, state: BaseStateClass,
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_port_signal(
+        self: BaseModelClass, port_name: str, signal: BaseSignalClass,
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def get_port_state(self: BaseModelClass, port_name: str,) -> BaseStateClass:
+        ...
+
+    @abstractmethod
+    def get_port_signal(self: BaseModelClass, port_name: str,) -> BaseSignalClass:
+        ...
+
+    @abstractmethod
+    def get_results(self: BaseModelClass) -> BaseResultClass:
+        ...
+
+    @abstractmethod
+    def equation(self: BaseModelClass):
         ...
 
 
@@ -407,7 +489,7 @@ class BaseBlockClass(ABC):
 
     """
 
-    def __init__(self: BaseBlockClass, name: str, ports: List[BasePortClass]):
+    def __init__(self: BaseBlockClass, name: str):
         """Initialize base block class.
 
         Init function of the base block class.
@@ -415,22 +497,51 @@ class BaseBlockClass(ABC):
         """
         # Class properties
         self.__name = name
-        self.__ports = ports
 
     @property
     def name(self: BaseBlockClass) -> str:
         return self.__name
 
     @property
-    def ports(self: BaseBlockClass) -> List[BasePortClass]:
-        return self.__ports
-
     @abstractmethod
-    def check(self: BaseBlockClass):
+    def ports(self: BaseBlockClass) -> List[BasePortClass]:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_energy(self: BaseBlockClass) -> np.float64:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_momentum(self: BaseBlockClass) -> np.float64:
+        ...
+
+    @property
+    @abstractmethod
+    def stop_criterion_mass(self: BaseBlockClass) -> np.float64:
         ...
 
     @abstractmethod
-    def equation(self: BaseBlockClass) -> BaseSignalClass:
+    def check(self: BaseBlockClass) -> bool:
+        ...
+
+    @abstractmethod
+    def set_port_signal(
+        self: BaseBlockClass, port_name: str, signal: BaseSignalClass,
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def get_port_signal(self: BaseBlockClass, port_name: str,) -> BaseSignalClass:
+        ...
+
+    @abstractmethod
+    def get_results(self: BaseBlockClass) -> BaseResultClass:
+        ...
+
+    @abstractmethod
+    def equation(self: BaseBlockClass):
         ...
 
 
@@ -441,7 +552,7 @@ class BasePortClass(ABC):
 
     """
 
-    def __init__(self: BasePortClass, name: str, port_function: PortFunctions):
+    def __init__(self: BasePortClass, name: str, port_function: PortFunctionTypes):
         """Initialize base port class.
 
         Init function of the base port class.
@@ -456,11 +567,11 @@ class BasePortClass(ABC):
         return self.__name
 
     @property
-    def port_function(self: BasePortClass) -> PortFunctions:
+    def port_function(self: BasePortClass) -> PortFunctionTypes:
         return self.__port_function
 
     @abstractmethod
-    def check(self: BasePortClass):
+    def check(self: BasePortClass) -> bool:
         ...
 
 
@@ -729,7 +840,7 @@ class BaseSignalClass(ABC):
 
 
 # System classes
-class SystemSimple(BaseSystemClass):
+class SystemSimpleIterative(BaseSystemClass):
     """Class of a simple system.
 
     The simple system is the main starting point for all physical systems and
@@ -745,6 +856,9 @@ class SystemSimple(BaseSystemClass):
     #     """
     #     super().__init__(**kwargs)
 
+    def stop_criterion(self: BaseSystemClass) -> bool:
+        ...
+
     def solve(self: BaseSystemClass):
         ...
 
@@ -758,7 +872,31 @@ class PortState(BasePortClass):
 
     """
 
-    def check(self: PortState):
+    def __init__(
+        self: PortState,
+        name: str,
+        port_function: PortFunctionTypes,
+        state: BaseStateClass,
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_function=port_function)
+
+        # Class properties
+        self.__state = state
+
+    @property
+    def state(self: PortState) -> BaseStateClass:
+        return self.__state
+
+    @state.setter
+    def state(self: PortState, state: BaseStateClass) -> None:
+        self.__state = state
+
+    def check(self: PortState) -> bool:
         ...
 
 
@@ -770,7 +908,31 @@ class PortSignal(BasePortClass):
 
     """
 
-    def check(self: PortSignal):
+    def __init__(
+        self: PortSignal,
+        name: str,
+        port_function: PortFunctionTypes,
+        signal: BaseSignalClass,
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_function=port_function)
+
+        # Class properties
+        self.__signal = signal
+
+    @property
+    def signal(self: PortSignal) -> BaseSignalClass:
+        return self.__signal
+
+    @signal.setter
+    def signal(self: PortSignal, signal: BaseSignalClass) -> None:
+        self.__signal = signal
+
+    def check(self: PortSignal) -> bool:
         ...
 
 
@@ -825,10 +987,10 @@ class MediumBinaryMixture(BaseStateClass):
     @property
     @abstractmethod
     def w(self: BaseStateClass) -> np.float64:
-        """Mass ratio.
+        """Humidity ratio.
 
         Returns:
-            np.float64: Mass ratio
+            np.float64: Humidity ratio
 
         """
         ...
@@ -866,4 +1028,4 @@ class MediumBinaryMixture(BaseStateClass):
 
 if __name__ == "__main__":
     logger = get_logger(__name__)
-    logger.warning("This is the core file of the thermd library.")
+    logger.info("This is the core file of the thermd library.")

@@ -72,13 +72,10 @@ class PumpSimple(BaseModelClass):
         )
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
+        self.__P = np.float64(0.0)
         self.__dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
 
     @property
     def ports(self: PumpSimple) -> List[BasePortClass]:
@@ -102,64 +99,86 @@ class PumpSimple(BaseModelClass):
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+        return np.float64(0.0)
 
     @property
     def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+        return np.float64(0.0)
 
     @property
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+        return np.float64(0.0)
 
     def check(self: PumpSimple) -> bool:
         return True
 
-    def set_port_state(
-        self: BaseModelClass, port_name: str, state: BaseStateClass,
+    def set_port_attr(
+        self: BaseModelClass,
+        port_name: str,
+        port_attr: Union[BaseStateClass, BaseSignalClass],
     ) -> None:
         if port_name == self.__port_inlet.name:
-            self.__port_inlet.state = state
+            if isinstance(self.__port_inlet, PortState) and isinstance(
+                port_attr, BaseStateClass
+            ):
+                self.__port_inlet.state = port_attr
+            elif isinstance(self.__port_inlet, PortSignal) and isinstance(
+                port_attr, BaseSignalClass
+            ):
+                self.__port_inlet.signal = port_attr
+            else:
+                logger.error("Cannot set port attribute: Wrong types.")
+                raise SystemExit
 
         elif port_name == self.__port_outlet.name:
-            self.__port_outlet.state = state
+            if isinstance(self.__port_outlet, PortState) and isinstance(
+                port_attr, BaseStateClass
+            ):
+                self.__port_outlet.state = port_attr
+            elif isinstance(self.__port_outlet, PortSignal) and isinstance(
+                port_attr, BaseSignalClass
+            ):
+                self.__port_outlet.signal = port_attr
+            else:
+                logger.error("Cannot set port attribute: Wrong types.")
+                raise SystemExit
 
         else:
-            logger.error("Cannot set port state: Unknown port name.")
+            logger.error("Cannot set port attribute: Unknown port name.")
             raise SystemExit
 
-    def set_port_signal(
-        self: BaseModelClass, port_name: str, signal: BaseSignalClass,
-    ) -> None:
+    def get_port_attr(
+        self: BaseModelClass, port_name: str,
+    ) -> Union[BaseStateClass, BaseSignalClass]:
         if port_name == self.__port_inlet.name:
-            self.__port_inlet.signal = signal
+            if isinstance(self.__port_inlet, PortState) and isinstance(
+                port_attr, BaseStateClass
+            ):
+                self.__port_inlet.state = port_attr
+            elif isinstance(self.__port_inlet, PortSignal) and isinstance(
+                port_attr, BaseSignalClass
+            ):
+                self.__port_inlet.signal = port_attr
+            else:
+                logger.error("Cannot set port attribute: Wrong types.")
+                raise SystemExit
+
         elif port_name == self.__port_outlet.name:
-            self.__port_outlet.signal = signal
+            if isinstance(self.__port_outlet, PortState) and isinstance(
+                port_attr, BaseStateClass
+            ):
+                self.__port_outlet.state = port_attr
+            elif isinstance(self.__port_outlet, PortSignal) and isinstance(
+                port_attr, BaseSignalClass
+            ):
+                self.__port_outlet.signal = port_attr
+            else:
+                logger.error("Cannot set port attribute: Wrong types.")
+                raise SystemExit
+
         else:
-            logger.error("Cannot set port signal: Unknown port name.")
+            logger.error("Cannot set port attribute: Unknown port name.")
             raise SystemExit
-
-    def get_port_state(self: BaseModelClass, port_name: str,) -> BaseStateClass:
-        if port_name == self.__port_inlet.name:
-            state = self.__port_inlet.state
-        elif port_name == self.__port_outlet.name:
-            state = self.__port_outlet.state
-        else:
-            logger.error("Cannot get port state: Unknown port name.")
-            raise SystemExit
-
-        return state
-
-    def get_port_signal(self: BaseModelClass, port_name: str,) -> BaseSignalClass:
-        if port_name == self.__port_inlet.name:
-            signal = self.__port_inlet.signal
-        elif port_name == self.__port_outlet.name:
-            signal = self.__port_outlet.signal
-        else:
-            logger.error("Cannot get port signal: Unknown port name.")
-            raise SystemExit
-
-        return signal
 
     def get_results(self: PumpSimple) -> MachineResult:
         return MachineResult()
