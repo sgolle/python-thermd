@@ -24,7 +24,7 @@ from thermd.core import (
     BaseSignalClass,
     PortState,
     PortSignal,
-    PortFunctionTypes,
+    PortTypes,
     MediumPure,
     # MediumBinaryMixture,
 )
@@ -63,13 +63,17 @@ class PumpSimple(BaseModelClass):
             )
             raise SystemExit
 
-        # Ports
-        self.__port_inlet = PortState(
-            name=name + "_port_a", port_function=PortFunctionTypes.INLET, state=state0,
-        )
-        self.__port_outlet = PortState(
-            name=name + "_port_b", port_function=PortFunctionTypes.OUTLET, state=state0,
-        )
+        # Ports:
+        self.__port_a = name + "_port_a"
+        self.__port_b = name + "_port_b"
+        self.__ports = {
+            self.__port_a: PortState(
+                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
+            ),
+            self.__port_b: PortState(
+                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
+            ),
+        }
 
         # Pump parameters
         # self.__P = np.float64(0.0)
@@ -79,26 +83,6 @@ class PumpSimple(BaseModelClass):
         self.__last_hmass = state0.hmass
         self.__last_p = state0.p
         self.__last_m_flow = state0.m_flow
-
-    @property
-    def ports(self: PumpSimple) -> List[BasePortClass]:
-        return [self.__port_inlet, self.__port_outlet]
-
-    # @property
-    # def port_inlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_inlet
-
-    # @port_inlet.setter
-    # def port_inlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_inlet = port
-
-    # @property
-    # def port_outlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_outlet
-
-    # @port_outlet.setter
-    # def port_outlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_outlet = port
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
@@ -115,59 +99,149 @@ class PumpSimple(BaseModelClass):
     def check(self: PumpSimple) -> bool:
         return True
 
-    def set_port_state(
-        self: BaseModelClass, port_name: str, state: BaseStateClass,
-    ) -> None:
-        if port_name == self.__port_inlet.name:
-            self.__port_inlet.state = state
-
-        elif port_name == self.__port_outlet.name:
-            self.__port_outlet.state = state
-
-        else:
-            logger.error("Cannot set port state: Unknown port name.")
-            raise SystemExit
-
-    def set_port_signal(
-        self: BaseModelClass, port_name: str, signal: BaseSignalClass,
-    ) -> None:
-        if port_name == self.__port_inlet.name:
-            self.__port_inlet.signal = signal
-        elif port_name == self.__port_outlet.name:
-            self.__port_outlet.signal = signal
-        else:
-            logger.error("Cannot set port signal: Unknown port name.")
-            raise SystemExit
-
-    def get_port_state(self: BaseModelClass, port_name: str,) -> BaseStateClass:
-        if port_name == self.__port_inlet.name:
-            state = self.__port_inlet.state
-        elif port_name == self.__port_outlet.name:
-            state = self.__port_outlet.state
-        else:
-            logger.error("Cannot get port state: Unknown port name.")
-            raise SystemExit
-
-        return state
-
-    def get_port_signal(self: BaseModelClass, port_name: str,) -> BaseSignalClass:
-        if port_name == self.__port_inlet.name:
-            signal = self.__port_inlet.signal
-        elif port_name == self.__port_outlet.name:
-            signal = self.__port_outlet.signal
-        else:
-            logger.error("Cannot get port signal: Unknown port name.")
-            raise SystemExit
-
-        return signal
-
     def get_results(self: PumpSimple) -> MachineResult:
         return MachineResult()
 
     def equation(self: PumpSimple):
-        self.__port_outlet.state = self.__port_inlet.state
-        self.__port_outlet.state.set_ps(
-            p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
+        self.__ports[self.__port_b].state.set_ps(
+            p=self.__ports[self.__port_a].state.p + self.__dp,
+            s=self.__ports[self.__port_a].state.s,
+        )
+
+
+class CompressorSimple(BaseModelClass):
+    """CompressorSimple class.
+
+    The CompressorSimple class implements a pump which delivers the mass flow from the
+    inlet with a constant pressure difference dp and ideal, isentropic behavior.
+    No height or velocity difference between inlet and outlet.
+
+    """
+
+    def __init__(
+        self: CompressorSimple, name: str, state0: BaseStateClass, dp: np.float64,
+    ):
+        super().__init__(name=name)
+
+        # Checks
+        if not isinstance(state0, MediumPure):
+            logger.error(
+                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                state0.super().__class__.__name__,
+            )
+            raise SystemExit
+
+        # Ports
+        self.__port_a = name + "_port_a"
+        self.__port_b = name + "_port_b"
+        self.__ports = {
+            self.__port_a: PortState(
+                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
+            ),
+            self.__port_b: PortState(
+                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
+            ),
+        }
+
+        # Pump parameters
+        # self.__P = np.float64(0.0)
+        self.__dp = dp
+
+        # Stop criterions
+        self.__last_hmass = state0.hmass
+        self.__last_p = state0.p
+        self.__last_m_flow = state0.m_flow
+
+    @property
+    def stop_criterion_energy(self: CompressorSimple) -> np.float64:
+        return self.__port_outlet.state.hmass - self.__last_hmass
+
+    @property
+    def stop_criterion_momentum(self: CompressorSimple) -> np.float64:
+        return self.__port_outlet.state.p - self.__last_p
+
+    @property
+    def stop_criterion_mass(self: CompressorSimple) -> np.float64:
+        return self.__port_outlet.state.m_flow - self.__last_m_flow
+
+    def check(self: CompressorSimple) -> bool:
+        return True
+
+    def get_results(self: CompressorSimple) -> MachineResult:
+        return MachineResult()
+
+    def equation(self: PumpSimple):
+        self.__ports[self.__port_b].state.set_ps(
+            p=self.__ports[self.__port_a].state.p + self.__dp,
+            s=self.__ports[self.__port_a].state.s,
+        )
+
+
+class TurbineSimple(BaseModelClass):
+    """TurbineSimple class.
+
+    The TurbineSimple class implements a pump which delivers the mass flow from the
+    inlet with a constant pressure difference dp and ideal, isentropic behavior.
+    No height or velocity difference between inlet and outlet.
+
+    """
+
+    def __init__(
+        self: TurbineSimple, name: str, state0: BaseStateClass, dp: np.float64,
+    ):
+        super().__init__(name=name)
+
+        # Checks
+        if not isinstance(state0, MediumPure):
+            logger.error(
+                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                state0.super().__class__.__name__,
+            )
+            raise SystemExit
+
+        # Ports
+        self.__port_a = name + "_port_a"
+        self.__port_b = name + "_port_b"
+        self.__ports = {
+            self.__port_a: PortState(
+                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
+            ),
+            self.__port_b: PortState(
+                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
+            ),
+        }
+
+        # Pump parameters
+        # self.__P = np.float64(0.0)
+        self.__dp = dp
+
+        # Stop criterions
+        self.__last_hmass = state0.hmass
+        self.__last_p = state0.p
+        self.__last_m_flow = state0.m_flow
+
+    @property
+    def stop_criterion_energy(self: TurbineSimple) -> np.float64:
+        return self.__port_outlet.state.hmass - self.__last_hmass
+
+    @property
+    def stop_criterion_momentum(self: TurbineSimple) -> np.float64:
+        return self.__port_outlet.state.p - self.__last_p
+
+    @property
+    def stop_criterion_mass(self: TurbineSimple) -> np.float64:
+        return self.__port_outlet.state.m_flow - self.__last_m_flow
+
+    def check(self: TurbineSimple) -> bool:
+        return True
+
+    def get_results(self: TurbineSimple) -> MachineResult:
+        return MachineResult()
+
+    def equation(self: PumpSimple):
+        self.__ports[self.__port_b].state.set_ps(
+            p=self.__ports[self.__port_a].state.p + self.__dp,
+            s=self.__ports[self.__port_a].state.s,
         )
 
 

@@ -31,9 +31,11 @@ class NodeTypes(Enum):
     PORT = auto()
 
 
-class PortFunctionTypes(Enum):
-    INLET = auto()
-    OUTLET = auto()
+class PortTypes(Enum):
+    STATE_INLET = auto()
+    STATE_OUTLET = auto()
+    SIGNAL_INLET = auto()
+    SIGNAL_OUTLET = auto()
 
 
 # Result classes
@@ -118,7 +120,7 @@ class BaseSystemClass(ABC):
         # Initialize index lists of models, blocks, ports, states and signals
         self.__models: List[str] = list()
         self.__blocks: List[str] = list()
-        self.__ports: List[str] = list()
+        self.__ports: Dict[str, List[str]] = dict()
 
         # Initialize main graph
         self.__network = nx.DiGraph()
@@ -133,144 +135,6 @@ class BaseSystemClass(ABC):
     # @property
     # def network(self):
     #     return self.__network
-
-    # def add_model(self: BaseSystemClass, name: str, dclass: BaseModelClass):
-    #     self.__network.add_node(name, dclass=dclass)
-
-    # def add_block(self: BaseSystemClass, name: str, dclass: BaseBlockClass):
-    #     self.__network.add_node(name, dclass=dclass)
-
-    # def add_connector(
-    #     self: BaseSystemClass, name1: str, name2: str, dclass: BaseConnectorClass,
-    # ):
-    #     self.__network.add_edge(name1, name2, dclass=dclass)
-
-    # def add_models_from(
-    #     self: BaseSystemClass, models: List[Tuple[str, BaseModelClass]],
-    # ):
-    #     self.__network.add_nodes_from(
-    #         [(models[i][0], {"dclass": models[i][1]}) for i in range(0, len(models))]
-    #     )
-
-    # def add_blocks_from(
-    #     self: BaseSystemClass, blocks: List[Tuple[str, BaseModelClass]],
-    # ):
-    #     self.__network.add_nodes_from(
-    #         [(blocks[i][0], {"dclass": blocks[i][1]}) for i in range(0, len(blocks))]
-    #     )
-
-    # def add_connectors_from(
-    #     self: BaseSystemClass, connectors: List[Tuple[str, str, BaseConnectorClass]],
-    # ):
-    #     self.__network.add_nodes_from(
-    #         [
-    #             (connectors[i][0], connectors[i][1], {"dclass": connectors[i][2]})
-    #             for i in range(0, len(connectors))
-    #         ]
-    #     )
-
-    # def remove_model(self: BaseSystemClass, name: str):
-    #     self.__network.remove_node(name)
-
-    # def remove_block(self: BaseSystemClass, name: str):
-    #     self.__network.remove_node(name)
-
-    # def remove_connector(
-    #     self: BaseSystemClass, name1: str, name2: str,
-    # ):
-    #     self.__network.remove_edge(name1, name2)
-
-    # def remove_models_from(
-    #     self: BaseSystemClass, models: List[str],
-    # ):
-    #     self.__network.remove_nodes_from(models)
-
-    # def remove_blocks_from(
-    #     self: BaseSystemClass, blocks: List[str],
-    # ):
-    #     self.__network.remove_nodes_from(blocks)
-
-    # def remove_connectors_from(
-    #     self: BaseSystemClass, connectors: List[Tuple[str, str]],
-    # ):
-    #     self.__network.remove_edges_from(connectors)
-
-    # def set_model_attributes(self: BaseSystemClass, name: str, dclass: BaseModelClass):
-    #     nx.set_node_attributes(self.__network, {name: {"dclass": dclass}})
-
-    # def set_block_attributes(self: BaseSystemClass, name: str, dclass: BaseBlockClass):
-    #     nx.set_node_attributes(self.__network, {name: {"dclass": dclass}})
-
-    # def set_connector_attributes(
-    #     self: BaseSystemClass, name1: str, name2: str, dclass: BaseConnectorClass,
-    # ):
-    #     nx.set_edge_attributes(self.__network, {(name1, name2): {"dclass": dclass}})
-
-    # def set_model_attributes_from(
-    #     self: BaseSystemClass, models: List[Tuple[str, BaseModelClass]],
-    # ):
-    #     nx.set_node_attributes(
-    #         self.__network,
-    #         {models[i][0]: {"dclass": models[i][1]} for i in range(0, len(models))},
-    #     )
-
-    # def set_block_attributes_from(
-    #     self: BaseSystemClass, blocks: List[Tuple[str, BaseBlockClass]],
-    # ):
-    #     nx.set_node_attributes(
-    #         self.__network,
-    #         {blocks[i][0]: {"dclass": blocks[i][1]} for i in range(0, len(blocks))},
-    #     )
-
-    # def set_connector_attributes_from(
-    #     self: BaseSystemClass, connectors: List[Tuple[str, str, BaseConnectorClass]],
-    # ):
-    #     nx.set_edge_attributes(
-    #         self.__network,
-    #         {
-    #             (connectors[i][0], connectors[i][1]): {"dclass": connectors[i][2]}
-    #             for i in range(0, len(connectors))
-    #         },
-    #     )
-
-    # def get_model_attributes(self: BaseSystemClass, name: str) -> BaseModelClass:
-    #     return self.__network[name]["dclass"]
-
-    # def get_block_attributes(self: BaseSystemClass, name: str) -> BaseBlockClass:
-    #     return self.__network[name]["dclass"]
-
-    # def get_connector_attributes(
-    #     self: BaseSystemClass, name1: str, name2: str,
-    # ) -> BaseConnectorClass:
-    #     return self.__network[name1][name2]["dclass"]
-
-    # def get_model_attributes_from(
-    #     self: BaseSystemClass, models: List[str],
-    # ) -> List[Tuple[str, BaseModelClass]]:
-    #     return [
-    #         (models[i], self.__network[models[i]]["dclass"])
-    #         for i in range(0, len(models))
-    #     ]
-
-    # def get_block_attributes_from(
-    #     self: BaseSystemClass, blocks: List[str],
-    # ) -> List[Tuple[str, BaseBlockClass]]:
-    #     return [
-    #         (blocks[i], self.__network[blocks[i]]["dclass"])
-    #         for i in range(0, len(blocks))
-    #     ]
-
-    # def get_connector_attributes_from(
-    #     self: BaseSystemClass, connectors: List[Tuple[str, str]],
-    # ) -> List[Tuple[str, str, BaseConnectorClass]]:
-    #     return [
-    #         (
-    #             connectors[i][0],
-    #             connectors[i][1],
-    #             self.__network[connectors[i][0]][connectors[i][1]]["dclass"],
-    #         )
-    #         for i in range(0, len(connectors))
-    #     ]
 
     def clear(self: BaseSystemClass):
         self.__network.clear()
@@ -294,20 +158,27 @@ class BaseSystemClass(ABC):
             node_class.name, node_type=NodeTypes.MODEL, node_class=node_class
         )
         self.__models.append(node_class.name)
+        self.__ports[node_class.name] = list()
 
-        for port in node_class.ports:
+        for port in node_class.ports.values():
 
             logger.info("Add port: %s", port.name)
 
             self.__network.add_node(port.name, node_type=NodeTypes.PORT)
-            self.__ports.append(port.name)
+            self.__ports[node_class.name].append(port.name)
 
-            if port.port_function == PortFunctionTypes.INLET:
+            if (
+                port.port_type == PortTypes.STATE_INLET
+                or port.port_type == PortTypes.SIGNAL_INLET
+            ):
                 self.__network.add_edge(port.name, node_class.name)
-            elif port.port_function == PortFunctionTypes.OUTLET:
+            elif (
+                port.port_type == PortTypes.STATE_OUTLET
+                or port.port_type == PortTypes.SIGNAL_OUTLET
+            ):
                 self.__network.add_edge(node_class.name, port.name)
             else:
-                logger.error("Wrong port function: %s", port.port_function)
+                logger.error("Wrong port function: %s", port.port_type)
                 raise SystemExit
 
     def add_block(
@@ -323,20 +194,27 @@ class BaseSystemClass(ABC):
             node_class.name, node_type=NodeTypes.BLOCK, node_class=node_class
         )
         self.__blocks.append(node_class.name)
+        self.__ports[node_class.name] = list()
 
-        for port in node_class.ports:
+        for port in node_class.ports.values():
 
             logger.info("Add port: %s", port.name)
 
             self.__network.add_node(port.name, node_type=NodeTypes.PORT)
-            self.__ports.append(port.name)
+            self.__ports[node_class.name].append(port.name)
 
-            if port.port_function == PortFunctionTypes.INLET:
+            if (
+                port.port_type == PortTypes.STATE_INLET
+                or port.port_type == PortTypes.SIGNAL_INLET
+            ):
                 self.__network.add_edge(port.name, node_class.name)
-            elif port.port_function == PortFunctionTypes.OUTLET:
+            elif (
+                port.port_type == PortTypes.STATE_OUTLET
+                or port.port_type == PortTypes.SIGNAL_OUTLET
+            ):
                 self.__network.add_edge(node_class.name, port.name)
             else:
-                logger.error("Wrong port function: %s", port.port_function)
+                logger.error("Wrong port function: %s", port.port_type)
                 raise SystemExit
 
     def connect(
@@ -418,6 +296,7 @@ class BaseModelClass(ABC):
         """
         # Class properties
         self.__name = name
+        self.__ports: Dict[str, BasePortClass] = dict()
 
         # Balances
         self.__energy_balance = np.float64(0.0)
@@ -429,9 +308,8 @@ class BaseModelClass(ABC):
         return self.__name
 
     @property
-    @abstractmethod
-    def ports(self: BaseModelClass) -> List[BasePortClass]:
-        ...
+    def ports(self: BaseModelClass) -> Dict[str, BasePortClass]:
+        return self.__ports
 
     @property
     @abstractmethod
@@ -448,28 +326,34 @@ class BaseModelClass(ABC):
     def stop_criterion_mass(self: BaseModelClass) -> np.float64:
         ...
 
+    def set_port_attr(
+        self: BaseModelClass,
+        port_name: str,
+        port_attr: Union[BaseStateClass, BaseSignalClass],
+    ) -> None:
+        if port_name in self.__ports:
+            if (
+                isinstance(self.__ports[port_name], PortState)
+                and isinstance(port_attr, BaseStateClass)
+            ) or (
+                isinstance(self.__ports[port_name], PortSignal)
+                and isinstance(port_attr, BaseSignalClass)
+            ):
+                self.__ports[port_name].port_attr = port_attr
+            else:
+                logger.error(
+                    "Port attribute and class doesn't match: %s -> %s.",
+                    self.__ports[port_name].__class__.__name__,
+                    port_attr.__class__.__name__,
+                )
+                raise SystemExit
+
+        else:
+            logger.error("Unknown port name: %s.", port_name)
+            raise SystemExit
+
     @abstractmethod
     def check(self: BaseModelClass) -> bool:
-        ...
-
-    @abstractmethod
-    def set_port_state(
-        self: BaseModelClass, port_name: str, state: BaseStateClass,
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_port_signal(
-        self: BaseModelClass, port_name: str, signal: BaseSignalClass,
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def get_port_state(self: BaseModelClass, port_name: str,) -> BaseStateClass:
-        ...
-
-    @abstractmethod
-    def get_port_signal(self: BaseModelClass, port_name: str,) -> BaseSignalClass:
         ...
 
     @abstractmethod
@@ -497,15 +381,15 @@ class BaseBlockClass(ABC):
         """
         # Class properties
         self.__name = name
+        self.__ports: Dict[str, Union[PortState, PortSignal]] = dict()
 
     @property
     def name(self: BaseBlockClass) -> str:
         return self.__name
 
     @property
-    @abstractmethod
-    def ports(self: BaseBlockClass) -> List[BasePortClass]:
-        ...
+    def ports(self: BaseBlockClass) -> Dict[str, Union[PortState, PortSignal]]:
+        return self.__ports
 
     @property
     @abstractmethod
@@ -527,16 +411,6 @@ class BaseBlockClass(ABC):
         ...
 
     @abstractmethod
-    def set_port_signal(
-        self: BaseBlockClass, port_name: str, signal: BaseSignalClass,
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def get_port_signal(self: BaseBlockClass, port_name: str,) -> BaseSignalClass:
-        ...
-
-    @abstractmethod
     def get_results(self: BaseBlockClass) -> BaseResultClass:
         ...
 
@@ -552,7 +426,12 @@ class BasePortClass(ABC):
 
     """
 
-    def __init__(self: BasePortClass, name: str, port_function: PortFunctionTypes):
+    def __init__(
+        self: BasePortClass,
+        name: str,
+        port_type: PortTypes,
+        port_attr: Union[BaseStateClass, BaseSignalClass],
+    ):
         """Initialize base port class.
 
         Init function of the base port class.
@@ -560,19 +439,26 @@ class BasePortClass(ABC):
         """
         # Class properties
         self.__name = name
-        self.__port_function = port_function
+        self.__port_type = port_type
+        self.__port_attr = port_attr
 
     @property
     def name(self: BasePortClass) -> str:
         return self.__name
 
     @property
-    def port_function(self: BasePortClass) -> PortFunctionTypes:
-        return self.__port_function
+    def port_type(self: BasePortClass) -> PortTypes:
+        return self.__port_type
 
-    @abstractmethod
-    def check(self: BasePortClass) -> bool:
-        ...
+    @property
+    def port_attr(self: BasePortClass) -> Union[BaseStateClass, BaseSignalClass]:
+        return self.__port_attr
+
+    @port_attr.setter
+    def port_attr(
+        self: BasePortClass, port_attr: Union[BaseStateClass, BaseSignalClass]
+    ) -> None:
+        self.__port_attr = port_attr
 
 
 class BaseStateClass(ABC):
@@ -848,19 +734,211 @@ class SystemSimpleIterative(BaseSystemClass):
 
     """
 
-    # def __init__(self, **kwargs):
-    #     """Initialize simple system class.
+    def __init__(self: SystemSimpleIterative, **kwargs):
+        """Initialize simple system class.
 
-    #     Init function of the simple system class.
+        Init function of the simple system class.
 
-    #     """
-    #     super().__init__(**kwargs)
+        """
+        super().__init__(**kwargs)
 
-    def stop_criterion(self: BaseSystemClass) -> bool:
+        # Additional system parameter
+        self.__start_node: List[str] = list()
+        self.__end_node: List[str] = list()
+        self.__simulation_nodes: List[str] = list()
+        # self.__start_node: Union[str, None] = None
+
+        # if "start_node" in kwargs:
+        #     self.__start_node = kwargs["start_node"]
+
+        # if kwargs["start_node"] is None:
+        #     kwargs["start_node"] = self.__models[0]
+
+    def get_start_nodes(self: SystemSimpleIterative):
+        if not self.diskretisierung_bestimmt:
+            self.logger.error(
+                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
+            )
+            return
+
+        self.startknoten_fluid1 = list()
+        self.startknoten_fluid2 = list()
+
+        for knoten in self.netzwerk.nodes:
+            if (
+                list(self.netzwerk.predecessors(knoten)) == []
+                and self.netzwerk[knoten][list(self.netzwerk.successors(knoten))[0]][
+                    "seite"
+                ]
+                == "Fluid1"
+            ):
+                self.startknoten_fluid1.append(knoten)
+
+            elif (
+                list(self.netzwerk.predecessors(knoten)) == []
+                and self.netzwerk[knoten][list(self.netzwerk.successors(knoten))[0]][
+                    "seite"
+                ]
+                == "Fluid2"
+            ):
+                self.startknoten_fluid2.append(knoten)
+
+        if self.startknoten_fluid1 == list() or self.startknoten_fluid1 == list():
+            self.logger.error("Die Startknoten konnten nicht bestimmt werden")
+            self.diskretisierung_bestimmt = False
+
+        return
+
+    def get_end_nodes(self: SystemSimpleIterative):
+        if not self.diskretisierung_bestimmt:
+            self.logger.error(
+                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
+            )
+            return
+
+        self.endknoten_fluid1 = list()
+        self.endknoten_fluid2 = list()
+
+        for knoten in self.netzwerk.nodes:
+            if (
+                list(self.netzwerk.successors(knoten)) == []
+                and self.netzwerk[list(self.netzwerk.predecessors(knoten))[0]][knoten][
+                    "seite"
+                ]
+                == "Fluid1"
+            ):
+                self.endknoten_fluid1.append(knoten)
+
+            elif (
+                list(self.netzwerk.successors(knoten)) == []
+                and self.netzwerk[list(self.netzwerk.predecessors(knoten))[0]][knoten][
+                    "seite"
+                ]
+                == "Fluid2"
+            ):
+                self.endknoten_fluid2.append(knoten)
+
+        if self.endknoten_fluid1 == list() and self.endknoten_fluid2 == list():
+            self.logger.error("Die Startknoten konnten nicht bestimmt werden")
+            self.diskretisierung_bestimmt = False
+
+        return
+
+    def get_simulation_node_list(self: SystemSimpleIterative):
+        # Standardreihenfolge
+        if not self.diskretisierung_bestimmt:
+            self.logger.error(
+                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
+            )
+            return
+
+        self.knotenreihenfolge = list()
+
+        netzwerk_fluid1 = nx.Graph(self.netzwerk)  # Netzwerk nur mit Kanten Fluid 1
+        netzwerk_fluid2 = nx.Graph(self.netzwerk)  # Netzwerk nur mit Kanten Fluid 2
+
+        for vorgaenger, nachfolger in self.netzwerk.edges:
+            if self.netzwerk[vorgaenger][nachfolger]["seite"] == "Fluid1":
+                netzwerk_fluid2.remove_edge(vorgaenger, nachfolger)
+            elif self.netzwerk[vorgaenger][nachfolger]["seite"] == "Fluid2":
+                netzwerk_fluid1.remove_edge(vorgaenger, nachfolger)
+
+        for startknoten in self.startknoten_fluid1:
+            for endknoten in self.endknoten_fluid1:
+                if nx.has_path(netzwerk_fluid1, source=startknoten, target=endknoten):
+                    pfad = nx.shortest_path(
+                        netzwerk_fluid1, source=startknoten, target=endknoten
+                    )
+                    self.knotenreihenfolge.extend(pfad)
+
+        for startknoten in self.startknoten_fluid2:
+            for endknoten in self.endknoten_fluid2:
+                if nx.has_path(netzwerk_fluid2, source=startknoten, target=endknoten):
+                    pfad = nx.shortest_path(
+                        netzwerk_fluid2, source=startknoten, target=endknoten
+                    )
+                    self.knotenreihenfolge.extend(pfad)
+
+        # Reihenfolge für Berechnungshack
+        self.knotenreihenfolge_hack = list()
+        self.endknoten_hack = dict()
+
+        startknoten_fluid1 = self.startknoten_fluid1[0]
+        startknoten_fluid1_iy = self.netzwerk.nodes[startknoten_fluid1]["iy"]
+        i = 0
+
+        for startknoten_fluid1 in self.startknoten_fluid1:
+            self.endknoten_hack["Pfad" + str(i + 1)] = dict()
+            self.endknoten_hack["Pfad" + str(i + 1)]["Fluid1"] = list()
+            self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"] = list()
+
+            for endknoten_fluid1 in self.endknoten_fluid1:
+                if nx.has_path(
+                    netzwerk_fluid1, source=startknoten_fluid1, target=endknoten_fluid1
+                ):
+
+                    self.endknoten_hack["Pfad" + str(i + 1)]["Fluid1"].append(
+                        endknoten_fluid1
+                    )
+
+                    pfad = nx.shortest_path(
+                        netzwerk_fluid1,
+                        source=startknoten_fluid1,
+                        target=endknoten_fluid1,
+                    )
+
+                    if i == 0:
+                        self.knotenreihenfolge_hack.extend(pfad)
+
+                    for knoten in pfad:
+                        if startknoten_fluid1_iy == self.netzwerk.nodes[knoten]["iy"]:
+                            for endknoten_fluid2 in self.endknoten_fluid2:
+                                if nx.has_path(
+                                    netzwerk_fluid2,
+                                    source=knoten,
+                                    target=endknoten_fluid2,
+                                ):
+                                    self.endknoten_hack["Pfad" + str(i + 1)][
+                                        "Fluid2"
+                                    ].append(endknoten_fluid2)
+
+                    self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"] = list(
+                        set(self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"])
+                    )
+
+                    if i == 0:
+                        for endknoten_fluid2 in self.endknoten_hack[
+                            "Pfad" + str(i + 1)
+                        ]["Fluid2"]:
+                            for startknoten_fluid2 in self.startknoten_fluid2:
+                                if nx.has_path(
+                                    netzwerk_fluid2,
+                                    source=startknoten_fluid2,
+                                    target=endknoten_fluid2,
+                                ):
+                                    pfad = nx.shortest_path(
+                                        netzwerk_fluid2,
+                                        source=startknoten_fluid2,
+                                        target=endknoten_fluid2,
+                                    )
+
+                                    self.knotenreihenfolge_hack.extend(pfad)
+            i += 1
+
+        return
+
+    def stop_criterion(self: SystemSimpleIterative) -> bool:
         ...
 
-    def solve(self: BaseSystemClass):
-        ...
+    def pre_solve(self: SystemSimpleIterative):
+        for model_name in self.__models:
+            print("Test")
+
+    def solve(self: SystemSimpleIterative):
+        self.pre_solve()
+
+        for model_name in self.__models:
+            print("Test")
 
 
 # Port classes
@@ -872,32 +950,20 @@ class PortState(BasePortClass):
 
     """
 
-    def __init__(
-        self: PortState,
-        name: str,
-        port_function: PortFunctionTypes,
-        state: BaseStateClass,
-    ):
-        """Initialize base port class.
-
-        Init function of the base port class.
-
-        """
-        super().__init__(name=name, port_function=port_function)
-
-        # Class properties
-        self.__state = state
-
     @property
     def state(self: PortState) -> BaseStateClass:
-        return self.__state
+        if not isinstance(self.__port_attr, BaseStateClass):
+            logger.error(
+                "Port has wrong attribute type: PortState -> %s",
+                self.__port_attr.__class__.__name__,
+            )
+            raise SystemExit
+
+        return self.__port_attr
 
     @state.setter
     def state(self: PortState, state: BaseStateClass) -> None:
-        self.__state = state
-
-    def check(self: PortState) -> bool:
-        ...
+        self.__port_attr = state
 
 
 class PortSignal(BasePortClass):
@@ -908,32 +974,20 @@ class PortSignal(BasePortClass):
 
     """
 
-    def __init__(
-        self: PortSignal,
-        name: str,
-        port_function: PortFunctionTypes,
-        signal: BaseSignalClass,
-    ):
-        """Initialize base port class.
-
-        Init function of the base port class.
-
-        """
-        super().__init__(name=name, port_function=port_function)
-
-        # Class properties
-        self.__signal = signal
-
     @property
     def signal(self: PortSignal) -> BaseSignalClass:
-        return self.__signal
+        if not isinstance(self.__port_attr, BaseSignalClass):
+            logger.error(
+                "Port has wrong attribute type: PortSignal -> %s",
+                self.__port_attr.__class__.__name__,
+            )
+            raise SystemExit
+
+        return self.__port_attr
 
     @signal.setter
     def signal(self: PortSignal, signal: BaseSignalClass) -> None:
-        self.__signal = signal
-
-    def check(self: PortSignal) -> bool:
-        ...
+        self.__port_attr = signal
 
 
 # State/ media classes

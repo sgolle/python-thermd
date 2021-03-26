@@ -24,7 +24,7 @@ from thermd.core import (
     BaseSignalClass,
     PortState,
     PortSignal,
-    PortFunctionTypes,
+    PortTypes,
     MediumPure,
     # MediumBinaryMixture,
 )
@@ -40,18 +40,20 @@ class MachineResult(BaseResultClass):
     ...
 
 
-# Machine classes
-class PumpSimple(BaseModelClass):
-    """PumpSimple class.
+# Mixin classes
 
-    The PumpSimple class implements a pump which delivers the mass flow from the inlet
+# Machine classes
+class HXSimple(BaseModelClass):
+    """HXSimple class.
+
+    The HXSimple class implements a pump which delivers the mass flow from the inlet
     with a constant pressure difference dp and ideal, isentropic behavior.
     No height or velocity difference between inlet and outlet.
 
     """
 
     def __init__(
-        self: PumpSimple, name: str, state0: BaseStateClass, dp: np.float64,
+        self: HXSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
         super().__init__(name=name)
 
@@ -65,125 +67,40 @@ class PumpSimple(BaseModelClass):
 
         # Ports
         self.__port_inlet = PortState(
-            name=name + "_port_a", port_function=PortFunctionTypes.INLET, state=state0,
+            name=name + "_port_a", port_type=PortTypes.INLET, state=state0,
         )
         self.__port_outlet = PortState(
-            name=name + "_port_b", port_function=PortFunctionTypes.OUTLET, state=state0,
+            name=name + "_port_b", port_type=PortTypes.OUTLET, state=state0,
         )
 
         # Pump parameters
-        self.__P = np.float64(0.0)
+        # self.__P = np.float64(0.0)
         self.__dp = dp
 
         # Stop criterions
+        self.__last_hmass = state0.hmass
+        self.__last_p = state0.p
+        self.__last_m_flow = state0.m_flow
 
     @property
-    def ports(self: PumpSimple) -> List[BasePortClass]:
-        return [self.__port_inlet, self.__port_outlet]
-
-    # @property
-    # def port_inlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_inlet
-
-    # @port_inlet.setter
-    # def port_inlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_inlet = port
-
-    # @property
-    # def port_outlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_outlet
-
-    # @port_outlet.setter
-    # def port_outlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_outlet = port
+    def stop_criterion_energy(self: HXSimple) -> np.float64:
+        return self.__port_outlet.state.hmass - self.__last_hmass
 
     @property
-    def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return np.float64(0.0)
+    def stop_criterion_momentum(self: HXSimple) -> np.float64:
+        return self.__port_outlet.state.p - self.__last_p
 
     @property
-    def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return np.float64(0.0)
+    def stop_criterion_mass(self: HXSimple) -> np.float64:
+        return self.__port_outlet.state.m_flow - self.__last_m_flow
 
-    @property
-    def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return np.float64(0.0)
-
-    def check(self: PumpSimple) -> bool:
+    def check(self: HXSimple) -> bool:
         return True
 
-    def set_port_attr(
-        self: BaseModelClass,
-        port_name: str,
-        port_attr: Union[BaseStateClass, BaseSignalClass],
-    ) -> None:
-        if port_name == self.__port_inlet.name:
-            if isinstance(self.__port_inlet, PortState) and isinstance(
-                port_attr, BaseStateClass
-            ):
-                self.__port_inlet.state = port_attr
-            elif isinstance(self.__port_inlet, PortSignal) and isinstance(
-                port_attr, BaseSignalClass
-            ):
-                self.__port_inlet.signal = port_attr
-            else:
-                logger.error("Cannot set port attribute: Wrong types.")
-                raise SystemExit
-
-        elif port_name == self.__port_outlet.name:
-            if isinstance(self.__port_outlet, PortState) and isinstance(
-                port_attr, BaseStateClass
-            ):
-                self.__port_outlet.state = port_attr
-            elif isinstance(self.__port_outlet, PortSignal) and isinstance(
-                port_attr, BaseSignalClass
-            ):
-                self.__port_outlet.signal = port_attr
-            else:
-                logger.error("Cannot set port attribute: Wrong types.")
-                raise SystemExit
-
-        else:
-            logger.error("Cannot set port attribute: Unknown port name.")
-            raise SystemExit
-
-    def get_port_attr(
-        self: BaseModelClass, port_name: str,
-    ) -> Union[BaseStateClass, BaseSignalClass]:
-        if port_name == self.__port_inlet.name:
-            if isinstance(self.__port_inlet, PortState) and isinstance(
-                port_attr, BaseStateClass
-            ):
-                self.__port_inlet.state = port_attr
-            elif isinstance(self.__port_inlet, PortSignal) and isinstance(
-                port_attr, BaseSignalClass
-            ):
-                self.__port_inlet.signal = port_attr
-            else:
-                logger.error("Cannot set port attribute: Wrong types.")
-                raise SystemExit
-
-        elif port_name == self.__port_outlet.name:
-            if isinstance(self.__port_outlet, PortState) and isinstance(
-                port_attr, BaseStateClass
-            ):
-                self.__port_outlet.state = port_attr
-            elif isinstance(self.__port_outlet, PortSignal) and isinstance(
-                port_attr, BaseSignalClass
-            ):
-                self.__port_outlet.signal = port_attr
-            else:
-                logger.error("Cannot set port attribute: Wrong types.")
-                raise SystemExit
-
-        else:
-            logger.error("Cannot set port attribute: Unknown port name.")
-            raise SystemExit
-
-    def get_results(self: PumpSimple) -> MachineResult:
+    def get_results(self: HXSimple) -> MachineResult:
         return MachineResult()
 
-    def equation(self: PumpSimple):
+    def equation(self: HXSimple):
         self.__port_outlet.state = self.__port_inlet.state
         self.__port_outlet.state.set_ps(
             p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
