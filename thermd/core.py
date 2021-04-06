@@ -106,16 +106,22 @@ class BaseSystemClass(ABC):
 
         """
         # System parameter
-        self.__stop_criterion_energy: Union[np.float64, None] = None
-        self.__stop_criterion_momentum: Union[np.float64, None] = None
-        self.__stop_criterion_mass: Union[np.float64, None] = None
+        self.__stop_criterion_energy = np.float64(1)
+        self.__stop_criterion_momentum = np.float64(1)
+        self.__stop_criterion_mass = np.float64(0.001)
+        self.__iteration_counter = np.uint16(0)
+        self.__max_iteration_counter = np.uint16(1000)
 
         if "stop_criterion_energy" in kwargs:
-            self.__stop_criterion_energy = kwargs["stop_criterion_energy"]
+            self.__stop_criterion_energy = np.float64(kwargs["stop_criterion_energy"])
         if "stop_criterion_momentum" in kwargs:
-            self.__stop_criterion_momentum = kwargs["stop_criterion_momentum"]
+            self.__stop_criterion_momentum = np.float64(
+                kwargs["stop_criterion_momentum"]
+            )
         if "stop_criterion_mass" in kwargs:
-            self.__stop_criterion_mass = kwargs["stop_criterion_mass"]
+            self.__stop_criterion_mass = np.float64(kwargs["stop_criterion_mass"])
+        if "max_iteration_counter" in kwargs:
+            self.__max_iteration_counter = np.uint16(kwargs["max_iteration_counter"])
 
         # Initialize index lists of models, blocks, ports, states and signals
         self.__models: List[str] = list()
@@ -469,19 +475,6 @@ class BaseStateClass(ABC):
 
     """
 
-    def __init__(self: BaseStateClass, name: str):
-        """Initialize base state class.
-
-        Init function of the base state class.
-
-        """
-        # Class properties
-        self.__name = name
-
-    @property
-    def name(self: BaseStateClass) -> str:
-        return self.__name
-
     @property
     @abstractmethod
     def cpmass(self: BaseStateClass) -> np.float64:
@@ -711,18 +704,7 @@ class BaseSignalClass(ABC):
 
     """
 
-    def __init__(self: BaseSignalClass, name: str):
-        """Initialize base signal class.
-
-        Init function of the base signal class.
-
-        """
-        # Class properties
-        self.__name = name
-
-    @property
-    def name(self: BaseSignalClass) -> str:
-        return self.__name
+    ...
 
 
 # System classes
@@ -743,10 +725,9 @@ class SystemSimpleIterative(BaseSystemClass):
         super().__init__(**kwargs)
 
         # Additional system parameter
-        self.__start_node: List[str] = list()
-        self.__end_node: List[str] = list()
+        # self.__start_node: List[str] = list()
+        # self.__end_node: List[str] = list()
         self.__simulation_nodes: List[str] = list()
-        # self.__start_node: Union[str, None] = None
 
         # if "start_node" in kwargs:
         #     self.__start_node = kwargs["start_node"]
@@ -754,191 +735,76 @@ class SystemSimpleIterative(BaseSystemClass):
         # if kwargs["start_node"] is None:
         #     kwargs["start_node"] = self.__models[0]
 
-    def get_start_nodes(self: SystemSimpleIterative):
-        if not self.diskretisierung_bestimmt:
-            self.logger.error(
-                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
-            )
-            return
-
-        self.startknoten_fluid1 = list()
-        self.startknoten_fluid2 = list()
-
-        for knoten in self.netzwerk.nodes:
-            if (
-                list(self.netzwerk.predecessors(knoten)) == []
-                and self.netzwerk[knoten][list(self.netzwerk.successors(knoten))[0]][
-                    "seite"
-                ]
-                == "Fluid1"
-            ):
-                self.startknoten_fluid1.append(knoten)
-
-            elif (
-                list(self.netzwerk.predecessors(knoten)) == []
-                and self.netzwerk[knoten][list(self.netzwerk.successors(knoten))[0]][
-                    "seite"
-                ]
-                == "Fluid2"
-            ):
-                self.startknoten_fluid2.append(knoten)
-
-        if self.startknoten_fluid1 == list() or self.startknoten_fluid1 == list():
-            self.logger.error("Die Startknoten konnten nicht bestimmt werden")
-            self.diskretisierung_bestimmt = False
-
-        return
-
-    def get_end_nodes(self: SystemSimpleIterative):
-        if not self.diskretisierung_bestimmt:
-            self.logger.error(
-                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
-            )
-            return
-
-        self.endknoten_fluid1 = list()
-        self.endknoten_fluid2 = list()
-
-        for knoten in self.netzwerk.nodes:
-            if (
-                list(self.netzwerk.successors(knoten)) == []
-                and self.netzwerk[list(self.netzwerk.predecessors(knoten))[0]][knoten][
-                    "seite"
-                ]
-                == "Fluid1"
-            ):
-                self.endknoten_fluid1.append(knoten)
-
-            elif (
-                list(self.netzwerk.successors(knoten)) == []
-                and self.netzwerk[list(self.netzwerk.predecessors(knoten))[0]][knoten][
-                    "seite"
-                ]
-                == "Fluid2"
-            ):
-                self.endknoten_fluid2.append(knoten)
-
-        if self.endknoten_fluid1 == list() and self.endknoten_fluid2 == list():
-            self.logger.error("Die Startknoten konnten nicht bestimmt werden")
-            self.diskretisierung_bestimmt = False
-
-        return
-
-    def get_simulation_node_list(self: SystemSimpleIterative):
-        # Standardreihenfolge
-        if not self.diskretisierung_bestimmt:
-            self.logger.error(
-                "Die Diskretisierung des Wärmeübertragers wurde noch nicht erstellt!"
-            )
-            return
-
-        self.knotenreihenfolge = list()
-
-        netzwerk_fluid1 = nx.Graph(self.netzwerk)  # Netzwerk nur mit Kanten Fluid 1
-        netzwerk_fluid2 = nx.Graph(self.netzwerk)  # Netzwerk nur mit Kanten Fluid 2
-
-        for vorgaenger, nachfolger in self.netzwerk.edges:
-            if self.netzwerk[vorgaenger][nachfolger]["seite"] == "Fluid1":
-                netzwerk_fluid2.remove_edge(vorgaenger, nachfolger)
-            elif self.netzwerk[vorgaenger][nachfolger]["seite"] == "Fluid2":
-                netzwerk_fluid1.remove_edge(vorgaenger, nachfolger)
-
-        for startknoten in self.startknoten_fluid1:
-            for endknoten in self.endknoten_fluid1:
-                if nx.has_path(netzwerk_fluid1, source=startknoten, target=endknoten):
-                    pfad = nx.shortest_path(
-                        netzwerk_fluid1, source=startknoten, target=endknoten
-                    )
-                    self.knotenreihenfolge.extend(pfad)
-
-        for startknoten in self.startknoten_fluid2:
-            for endknoten in self.endknoten_fluid2:
-                if nx.has_path(netzwerk_fluid2, source=startknoten, target=endknoten):
-                    pfad = nx.shortest_path(
-                        netzwerk_fluid2, source=startknoten, target=endknoten
-                    )
-                    self.knotenreihenfolge.extend(pfad)
-
-        # Reihenfolge für Berechnungshack
-        self.knotenreihenfolge_hack = list()
-        self.endknoten_hack = dict()
-
-        startknoten_fluid1 = self.startknoten_fluid1[0]
-        startknoten_fluid1_iy = self.netzwerk.nodes[startknoten_fluid1]["iy"]
-        i = 0
-
-        for startknoten_fluid1 in self.startknoten_fluid1:
-            self.endknoten_hack["Pfad" + str(i + 1)] = dict()
-            self.endknoten_hack["Pfad" + str(i + 1)]["Fluid1"] = list()
-            self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"] = list()
-
-            for endknoten_fluid1 in self.endknoten_fluid1:
-                if nx.has_path(
-                    netzwerk_fluid1, source=startknoten_fluid1, target=endknoten_fluid1
-                ):
-
-                    self.endknoten_hack["Pfad" + str(i + 1)]["Fluid1"].append(
-                        endknoten_fluid1
-                    )
-
-                    pfad = nx.shortest_path(
-                        netzwerk_fluid1,
-                        source=startknoten_fluid1,
-                        target=endknoten_fluid1,
-                    )
-
-                    if i == 0:
-                        self.knotenreihenfolge_hack.extend(pfad)
-
-                    for knoten in pfad:
-                        if startknoten_fluid1_iy == self.netzwerk.nodes[knoten]["iy"]:
-                            for endknoten_fluid2 in self.endknoten_fluid2:
-                                if nx.has_path(
-                                    netzwerk_fluid2,
-                                    source=knoten,
-                                    target=endknoten_fluid2,
-                                ):
-                                    self.endknoten_hack["Pfad" + str(i + 1)][
-                                        "Fluid2"
-                                    ].append(endknoten_fluid2)
-
-                    self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"] = list(
-                        set(self.endknoten_hack["Pfad" + str(i + 1)]["Fluid2"])
-                    )
-
-                    if i == 0:
-                        for endknoten_fluid2 in self.endknoten_hack[
-                            "Pfad" + str(i + 1)
-                        ]["Fluid2"]:
-                            for startknoten_fluid2 in self.startknoten_fluid2:
-                                if nx.has_path(
-                                    netzwerk_fluid2,
-                                    source=startknoten_fluid2,
-                                    target=endknoten_fluid2,
-                                ):
-                                    pfad = nx.shortest_path(
-                                        netzwerk_fluid2,
-                                        source=startknoten_fluid2,
-                                        target=endknoten_fluid2,
-                                    )
-
-                                    self.knotenreihenfolge_hack.extend(pfad)
-            i += 1
-
-        return
-
     def stop_criterion(self: SystemSimpleIterative) -> bool:
-        ...
+        self.__iteration_counter += np.uint16(1)
+
+        if self.__iteration_counter == 0:
+            return True
+        if self.__iteration_counter > self.__max_iteration_counter:
+            return False
+
+        for node_name in self.__simulation_nodes:
+
+            if (
+                np.abs(self.__network[node_name]["node_class"].stop_criterion_energy)
+                > self.__stop_criterion_energy
+            ):
+                return True
+            if (
+                np.abs(self.__network[node_name]["node_class"].stop_criterion_momentum)
+                > self.__stop_criterion_momentum
+            ):
+                return True
+            if (
+                np.abs(self.__network[node_name]["node_class"].stop_criterion_mass)
+                > self.__stop_criterion_mass
+            ):
+                return True
+
+        return False
 
     def pre_solve(self: SystemSimpleIterative):
-        for model_name in self.__models:
-            print("Test")
+        self.check()
+        self.__simulation_nodes = self.__models + self.__blocks
 
     def solve(self: SystemSimpleIterative):
+        logger.info("Start solver.")
+        logger.info("Pre-solve.")
         self.pre_solve()
 
-        for model_name in self.__models:
-            print("Test")
+        logger.info("Solve.")
+        while self.stop_criterion():
+            logger.info(
+                "Iteration count: %s of %s",
+                str(self.__iteration_counter),
+                str(self.__max_iteration_counter),
+            )
+            for node_name in self.__simulation_nodes:
+                logger.info("Calculate node %s", node_name)
+
+                self.__network[node_name]["node_class"].equation()
+
+                for outlet_port_name in self.__network.successors(node_name):
+                    for connected_port_name in self.__network.successors(
+                        outlet_port_name
+                    ):
+                        for successor_node_name in self.__network.successors(
+                            connected_port_name
+                        ):
+                            logger.info(
+                                "Set port %s of node %s with port %s of node %s",
+                                connected_port_name,
+                                successor_node_name,
+                                outlet_port_name,
+                                node_name,
+                            )
+                            self.__network[successor_node_name].ports[
+                                connected_port_name
+                            ].port_attr = (
+                                self.__network[node_name]
+                                .ports[outlet_port_name]
+                                .port_attr
+                            )
 
 
 # Port classes

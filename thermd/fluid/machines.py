@@ -8,22 +8,23 @@ Beschreibung
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict, Union
 
-from CoolProp.CoolProp import PropsSI
-from CoolProp.HumidAirProp import HAPropsSI
-import math
+# from typing import List, Dict, Union
+
+# from CoolProp.CoolProp import PropsSI
+# from CoolProp.HumidAirProp import HAPropsSI
+# import math
 import numpy as np
-from numpy.lib.ufunclike import isneginf
-from scipy import optimize as opt
+
+# from scipy import optimize as opt
 from thermd.core import (
     BaseResultClass,
     BaseModelClass,
-    BasePortClass,
+    # BasePortClass,
     BaseStateClass,
-    BaseSignalClass,
+    # BaseSignalClass,
     PortState,
-    PortSignal,
+    # PortSignal,
     PortTypes,
     MediumPure,
     # MediumBinaryMixture,
@@ -53,6 +54,11 @@ class PumpSimple(BaseModelClass):
     def __init__(
         self: PumpSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
+        """Initialize PumpSimple class.
+
+        Init function of the PumpSimple class.
+
+        """
         super().__init__(name=name)
 
         # Checks
@@ -76,7 +82,6 @@ class PumpSimple(BaseModelClass):
         }
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
         self.__dp = dp
 
         # Stop criterions
@@ -86,15 +91,15 @@ class PumpSimple(BaseModelClass):
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
 
     @property
     def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+        return self.__ports[self.__port_b].state.p - self.__last_p
 
     @property
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
 
     def check(self: PumpSimple) -> bool:
         return True
@@ -107,6 +112,11 @@ class PumpSimple(BaseModelClass):
             p=self.__ports[self.__port_a].state.p + self.__dp,
             s=self.__ports[self.__port_a].state.s,
         )
+
+        # Stop criterions
+        self.__last_hmass = self.__ports[self.__port_b].state.hmass
+        self.__last_p = self.__ports[self.__port_b].state.p
+        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
 
 
 class CompressorSimple(BaseModelClass):
@@ -121,6 +131,11 @@ class CompressorSimple(BaseModelClass):
     def __init__(
         self: CompressorSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
+        """Initialize CompressorSimple class.
+
+        Init function of the CompressorSimple class.
+
+        """
         super().__init__(name=name)
 
         # Checks
@@ -144,7 +159,6 @@ class CompressorSimple(BaseModelClass):
         }
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
         self.__dp = dp
 
         # Stop criterions
@@ -153,16 +167,16 @@ class CompressorSimple(BaseModelClass):
         self.__last_m_flow = state0.m_flow
 
     @property
-    def stop_criterion_energy(self: CompressorSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+    def stop_criterion_energy(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
 
     @property
-    def stop_criterion_momentum(self: CompressorSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+    def stop_criterion_momentum(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.p - self.__last_p
 
     @property
-    def stop_criterion_mass(self: CompressorSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+    def stop_criterion_mass(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
 
     def check(self: CompressorSimple) -> bool:
         return True
@@ -170,11 +184,16 @@ class CompressorSimple(BaseModelClass):
     def get_results(self: CompressorSimple) -> MachineResult:
         return MachineResult()
 
-    def equation(self: PumpSimple):
+    def equation(self: CompressorSimple):
         self.__ports[self.__port_b].state.set_ps(
             p=self.__ports[self.__port_a].state.p + self.__dp,
             s=self.__ports[self.__port_a].state.s,
         )
+
+        # Stop criterions
+        self.__last_hmass = self.__ports[self.__port_b].state.hmass
+        self.__last_p = self.__ports[self.__port_b].state.p
+        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
 
 
 class TurbineSimple(BaseModelClass):
@@ -189,6 +208,11 @@ class TurbineSimple(BaseModelClass):
     def __init__(
         self: TurbineSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
+        """Initialize TurbineSimple class.
+
+        Init function of the TurbineSimple class.
+
+        """
         super().__init__(name=name)
 
         # Checks
@@ -212,7 +236,6 @@ class TurbineSimple(BaseModelClass):
         }
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
         self.__dp = dp
 
         # Stop criterions
@@ -221,16 +244,16 @@ class TurbineSimple(BaseModelClass):
         self.__last_m_flow = state0.m_flow
 
     @property
-    def stop_criterion_energy(self: TurbineSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+    def stop_criterion_energy(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
 
     @property
-    def stop_criterion_momentum(self: TurbineSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+    def stop_criterion_momentum(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.p - self.__last_p
 
     @property
-    def stop_criterion_mass(self: TurbineSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+    def stop_criterion_mass(self: PumpSimple) -> np.float64:
+        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
 
     def check(self: TurbineSimple) -> bool:
         return True
@@ -238,11 +261,16 @@ class TurbineSimple(BaseModelClass):
     def get_results(self: TurbineSimple) -> MachineResult:
         return MachineResult()
 
-    def equation(self: PumpSimple):
+    def equation(self: TurbineSimple):
         self.__ports[self.__port_b].state.set_ps(
             p=self.__ports[self.__port_a].state.p + self.__dp,
             s=self.__ports[self.__port_a].state.s,
         )
+
+        # Stop criterions
+        self.__last_hmass = self.__ports[self.__port_b].state.hmass
+        self.__last_p = self.__ports[self.__port_b].state.p
+        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
 
 
 if __name__ == "__main__":

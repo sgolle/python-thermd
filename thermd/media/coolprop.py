@@ -522,7 +522,6 @@ class MediumCoolProp(MediumPure):
 
     def __init__(
         self: MediumCoolProp,
-        name: str,
         state: AbstractState,
         m_flow: np.float64 = np.float64(0.0),
     ) -> None:
@@ -531,8 +530,6 @@ class MediumCoolProp(MediumPure):
         The init function of the MediumCoolProp class.
 
         """
-        super().__init__(name=name)
-
         # Class parameters
         self.__state = state
         self.__m_flow = m_flow
@@ -540,7 +537,6 @@ class MediumCoolProp(MediumPure):
     @classmethod
     def from_pT(
         cls: Type[MediumCoolProp],
-        name: str,
         p: np.float64,
         T: np.float64,
         fluid: CoolPropFluid,
@@ -558,12 +554,11 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.PT_INPUTS, p, T)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @classmethod
     def from_px(
         cls: Type[MediumCoolProp],
-        name: str,
         p: np.float64,
         x: np.float64,
         fluid: CoolPropFluid,
@@ -581,12 +576,11 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.PQ_INPUTS, p, x)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @classmethod
     def from_Tx(
         cls: Type[MediumCoolProp],
-        name: str,
         T: np.float64,
         x: np.float64,
         fluid: CoolPropFluid,
@@ -604,12 +598,11 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.QT_INPUTS, x, T)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @classmethod
     def from_ph(
         cls: Type[MediumCoolProp],
-        name: str,
         p: np.float64,
         h: np.float64,
         fluid: CoolPropFluid,
@@ -627,12 +620,11 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.HmassP_INPUTS, h, p)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @classmethod
     def from_Th(
         cls: Type[MediumCoolProp],
-        name: str,
         T: np.float64,
         h: np.float64,
         fluid: CoolPropFluid,
@@ -650,12 +642,11 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.HmassT_INPUTS, h, T)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @classmethod
     def from_generic(
         cls: Type[MediumCoolProp],
-        name: str,
         input_type: CoolPropInputTypes,
         prop1: np.float64,
         prop2: np.float64,
@@ -674,7 +665,7 @@ class MediumCoolProp(MediumPure):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(input_type.value, prop1, prop2)
-        return cls(name=name, state=state, m_flow=m_flow)
+        return cls(state=state, m_flow=m_flow)
 
     @property
     def cpmass(self: MediumCoolProp) -> np.float64:
@@ -936,7 +927,6 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
 
     def __init__(
         self: MediumCoolPropHumidAir,
-        name: str,
         p: np.float64,
         T: np.float64,
         w: np.float64,
@@ -947,8 +937,6 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         The init function of the MediumCoolPropHumidAir class.
 
         """
-        super().__init__(name=name)
-
         # Class parameters
         self.__p = p
         self.__T = T
