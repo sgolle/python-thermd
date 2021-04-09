@@ -18,6 +18,7 @@ import numpy as np
 
 # from scipy import optimize as opt
 from thermd.core import (
+    BasePortClass,
     BaseResultClass,
     BaseModelClass,
     # BasePortClass,
@@ -26,8 +27,8 @@ from thermd.core import (
     PortState,
     # PortSignal,
     PortTypes,
-    MediumPure,
-    # MediumBinaryMixture,
+    MediumBase,
+    # MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -62,44 +63,58 @@ class PumpSimple(BaseModelClass):
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
-        # Ports:
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        # Ports
+        self._port_a_name = self.name + "_port_a"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Pump parameters
-        self.__dp = dp
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: PumpSimple) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b(self: PumpSimple) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: PumpSimple) -> bool:
         return True
@@ -108,15 +123,21 @@ class PumpSimple(BaseModelClass):
         return MachineResult()
 
     def equation(self: PumpSimple):
-        self.__ports[self.__port_b].state.set_ps(
-            p=self.__ports[self.__port_a].state.p + self.__dp,
-            s=self.__ports[self.__port_a].state.s,
+        # New state
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.smass,
         )
 
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
+
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 class CompressorSimple(BaseModelClass):
@@ -139,44 +160,58 @@ class CompressorSimple(BaseModelClass):
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
         # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        self._port_a_name = self.name + "_port_a"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Pump parameters
-        self.__dp = dp
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: CompressorSimple) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b(self: CompressorSimple) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: CompressorSimple) -> bool:
         return True
@@ -185,15 +220,15 @@ class CompressorSimple(BaseModelClass):
         return MachineResult()
 
     def equation(self: CompressorSimple):
-        self.__ports[self.__port_b].state.set_ps(
-            p=self.__ports[self.__port_a].state.p + self.__dp,
-            s=self.__ports[self.__port_a].state.s,
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.smass,
         )
 
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 class TurbineSimple(BaseModelClass):
@@ -216,44 +251,58 @@ class TurbineSimple(BaseModelClass):
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
         # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        self._port_a_name = self.name + "_port_a"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Pump parameters
-        self.__dp = dp
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: TurbineSimple) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b(self: TurbineSimple) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: TurbineSimple) -> bool:
         return True
@@ -262,17 +311,17 @@ class TurbineSimple(BaseModelClass):
         return MachineResult()
 
     def equation(self: TurbineSimple):
-        self.__ports[self.__port_b].state.set_ps(
-            p=self.__ports[self.__port_a].state.p + self.__dp,
-            s=self.__ports[self.__port_a].state.s,
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.smass,
         )
 
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 if __name__ == "__main__":
     logger = get_logger(__name__)
-    logger.warning("This is the file for the machine model classes.")
+    logger.info("This is the file for the machine model classes.")

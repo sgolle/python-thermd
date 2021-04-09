@@ -18,7 +18,7 @@ from CoolProp.HumidAirProp import HAPropsSI
 import math
 import numpy as np
 from scipy import optimize as opt
-from thermd.core import MediumPure, MediumBinaryMixture
+from thermd.core import MediumBase, MediumHumidAir
 from thermd.helper import get_logger
 
 # Initialize global logger
@@ -439,8 +439,8 @@ class CoolPropFluid:
         The init function of the CoolProp fluid class.
 
         """
-        self.__fluid_name = fluid_name
-        self.__fluid_type = fluid_type
+        self._fluid_name = fluid_name
+        self._fluid_type = fluid_type
 
     @classmethod
     def new_pure_fluid(
@@ -504,15 +504,15 @@ class CoolPropFluid:
 
     @property
     def fluid_name(self: CoolPropFluid) -> str:
-        return self.__fluid_name
+        return self._fluid_name
 
     @property
     def fluid_type(self: CoolPropFluid) -> CoolPropFluidTypes:
-        return self.__fluid_type
+        return self._fluid_type
 
 
 # Media classes as derivation of base state class
-class MediumCoolProp(MediumPure):
+class MediumCoolProp(MediumBase):
     """MediumCoolProp class.
 
     The MediumCoolProp class is a wrapper around the low-level interface of CoolProp
@@ -531,8 +531,8 @@ class MediumCoolProp(MediumPure):
 
         """
         # Class parameters
-        self.__state = state
-        self.__m_flow = m_flow
+        self._state = state
+        self._m_flow = m_flow
 
     @classmethod
     def from_pT(
@@ -675,7 +675,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific heat at constant pressure in J/kg/K
 
         """
-        return np.float64(self.__state.cpmass())
+        return np.float64(self._state.cpmass())
 
     @property
     def cpmolar(self: MediumCoolProp) -> np.float64:
@@ -685,7 +685,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific heat at constant pressure in J/mol/K
 
         """
-        return np.float64(self.__state.cpmolar())
+        return np.float64(self._state.cpmolar())
 
     @property
     def cvmass(self: MediumCoolProp) -> np.float64:
@@ -695,7 +695,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific heat at constant volume in J/kg/K
 
         """
-        return np.float64(self.__state.cvmass())
+        return np.float64(self._state.cvmass())
 
     @property
     def cvmolar(self: MediumCoolProp) -> np.float64:
@@ -705,7 +705,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific heat at constant volume in J/mol/K
 
         """
-        return np.float64(self.__state.cvmolar())
+        return np.float64(self._state.cvmolar())
 
     @property
     def hmass(self: MediumCoolProp) -> np.float64:
@@ -715,7 +715,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass-specific enthalpy in J/kg
 
         """
-        return np.float64(self.__state.hmass())
+        return np.float64(self._state.hmass())
 
     @property
     def hmolar(self: MediumCoolProp) -> np.float64:
@@ -725,7 +725,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass-specific enthalpy in J/mol
 
         """
-        return np.float64(self.__state.hmolar())
+        return np.float64(self._state.hmolar())
 
     @property
     def conductivity(self: MediumCoolProp) -> np.float64:
@@ -735,7 +735,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Thermal conductivity in W/m/K
 
         """
-        return np.float64(self.__state.conductivity())
+        return np.float64(self._state.conductivity())
 
     @property
     def viscosity(self: MediumCoolProp) -> np.float64:
@@ -745,7 +745,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Viscosity in Pa*s
 
         """
-        return np.float64(self.__state.viscosity())
+        return np.float64(self._state.viscosity())
 
     @property
     def p(self: MediumCoolProp) -> np.float64:
@@ -755,7 +755,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Pressure in Pa
 
         """
-        return np.float64(self.__state.p())
+        return np.float64(self._state.p())
 
     @property
     def rhomass(self: MediumCoolProp) -> np.float64:
@@ -765,7 +765,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Density in kg/m**3
 
         """
-        return np.float64(self.__state.rhomass())
+        return np.float64(self._state.rhomass())
 
     @property
     def rhomolar(self: MediumCoolProp) -> np.float64:
@@ -775,7 +775,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Density in mol/m**3
 
         """
-        return np.float64(self.__state.rhomolar())
+        return np.float64(self._state.rhomolar())
 
     @property
     def gas_constant(self: MediumCoolProp) -> np.float64:
@@ -785,7 +785,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific gas constant in J/mol/K
 
         """
-        return np.float64(self.__state.gas_constant())
+        return np.float64(self._state.gas_constant())
 
     @property
     def m_flow(self: MediumCoolProp) -> np.float64:
@@ -795,7 +795,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass flow in kg/s
 
         """
-        return self.__m_flow
+        return self._m_flow
 
     @m_flow.setter
     def m_flow(self: MediumCoolProp, value: np.float64) -> None:
@@ -805,7 +805,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass flow in kg/s
 
         """
-        self.__m_flow = value
+        self._m_flow = value
 
     @property
     def smass(self: MediumCoolProp) -> np.float64:
@@ -815,7 +815,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass-specific entropy in J/kg/K
 
         """
-        return np.float64(self.__state.smass())
+        return np.float64(self._state.smass())
 
     @property
     def smolar(self: MediumCoolProp) -> np.float64:
@@ -825,7 +825,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Mass-specific entropy in J/mol/K
 
         """
-        return np.float64(self.__state.smolar())
+        return np.float64(self._state.smolar())
 
     @property
     def T(self: MediumCoolProp) -> np.float64:
@@ -835,7 +835,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Temperature in K
 
         """
-        return np.float64(self.__state.T())
+        return np.float64(self._state.T())
 
     @property
     def vmass(self: MediumCoolProp) -> np.float64:
@@ -845,7 +845,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific volume in m**3/kg
 
         """
-        return np.float64(1.0 / self.__state.rhomass())
+        return np.float64(1.0 / self._state.rhomass())
 
     @property
     def vmolar(self: MediumCoolProp) -> np.float64:
@@ -855,7 +855,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Specific volume in m**3/mol
 
         """
-        return np.float64(1.0 / self.__state.rhomolar())
+        return np.float64(1.0 / self._state.rhomolar())
 
     @property
     def x(self: MediumCoolProp) -> np.float64:
@@ -865,7 +865,7 @@ class MediumCoolProp(MediumPure):
             np.float64: Vapor quality
 
         """
-        return np.float64(self.__state.Q())
+        return np.float64(self._state.Q())
 
     @property
     def Z(self: MediumCoolProp) -> np.float64:
@@ -875,28 +875,28 @@ class MediumCoolProp(MediumPure):
             np.float64: Compressibility factor
 
         """
-        return np.float64(self.__state.compressibility_factor())
+        return np.float64(self._state.compressibility_factor())
 
     def set_pT(self: MediumCoolProp, p: np.float64, T: np.float64) -> None:
-        self.__state.update(CoolProp.PT_INPUTS, p, T)
+        self._state.update(CoolProp.PT_INPUTS, p, T)
 
     def set_px(self: MediumCoolProp, p: np.float64, x: np.float64) -> None:
-        self.__state.update(CoolProp.PQ_INPUTS, p, x)
+        self._state.update(CoolProp.PQ_INPUTS, p, x)
 
     def set_Tx(self: MediumCoolProp, T: np.float64, x: np.float64) -> None:
-        self.__state.update(CoolProp.QT_INPUTS, x, T)
+        self._state.update(CoolProp.QT_INPUTS, x, T)
 
     def set_ph(self: MediumCoolProp, p: np.float64, h: np.float64) -> None:
-        self.__state.update(CoolProp.HmassP_INPUTS, h, p)
+        self._state.update(CoolProp.HmassP_INPUTS, h, p)
 
     def set_Th(self: MediumCoolProp, T: np.float64, h: np.float64) -> None:
-        self.__state.update(CoolProp.HmassT_INPUTS, h, T)
+        self._state.update(CoolProp.HmassT_INPUTS, h, T)
 
     def set_ps(self: MediumCoolProp, p: np.float64, s: np.float64) -> None:
-        self.__state.update(CoolProp.PSmass_INPUTS, p, s)
+        self._state.update(CoolProp.PSmass_INPUTS, p, s)
 
     def set_Ts(self: MediumCoolProp, T: np.float64, s: np.float64) -> None:
-        self.__state.update(CoolProp.SmassT_INPUTS, s, T)
+        self._state.update(CoolProp.SmassT_INPUTS, s, T)
 
     def set_state_generic(
         self: MediumCoolProp,
@@ -904,20 +904,20 @@ class MediumCoolProp(MediumPure):
         prop1: np.float64,
         prop2: np.float64,
     ) -> None:
-        self.__state.update(input_type.value, prop1, prop2)
+        self._state.update(input_type.value, prop1, prop2)
 
     def get_state_generic(
         self: MediumCoolProp, output_type: CoolPropOutputTypes,
     ) -> np.float64:
-        return np.float64(self.__state.keyed_output(output_type))
+        return np.float64(self._state.keyed_output(output_type))
 
     def get_state_generic_list(
         self: MediumCoolProp, output_types: List[CoolPropOutputTypes],
     ) -> List[np.float64]:
-        return [np.float64(self.__state.keyed_output(k)) for k in output_types]
+        return [np.float64(self._state.keyed_output(k)) for k in output_types]
 
 
-class MediumCoolPropHumidAir(MediumBinaryMixture):
+class MediumCoolPropHumidAir(MediumHumidAir):
     """MediumCoolPropHumidAir class.
 
     The MediumCoolPropHumidAir class is an interface to the 
@@ -938,19 +938,19 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
 
         """
         # Class parameters
-        self.__p = p
-        self.__T = T
-        self.__w = w
-        self.__m_flow = m_flow
+        self._p = p
+        self._T = T
+        self._w = w
+        self._m_flow = m_flow
 
         # Constants
-        self.__R_air = np.float64(287.0474730938159)
-        self.__R_water = np.float64(461.5230869726723)
+        self._R_air = np.float64(287.0474730938159)
+        self._R_water = np.float64(461.5230869726723)
 
-        # self.__cp_air_poly = np.poly1d(
+        # self._cp_air_poly = np.poly1d(
         #     [-1.02982783e-07, 4.29730845e-04, 1.46305349e-02, 1.00562420e03]
         # )
-        # self.__cp_water_vapor_poly = np.poly1d(
+        # self._cp_water_vapor_poly = np.poly1d(
         #     [
         #         3.05228669e-11,
         #         -1.57712722e-08,
@@ -960,7 +960,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         #         1.85835959e03,
         #     ]
         # )
-        # self.__cp_water_liquid_poly = np.poly1d(
+        # self._cp_water_liquid_poly = np.poly1d(
         #     [
         #         -9.13327305e-14,
         #         9.89764971e-11,
@@ -972,33 +972,33 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         #         4.21866441e03,
         #     ]
         # )
-        self.__cp_water_ice_poly = np.poly1d(
+        self._cp_water_ice_poly = np.poly1d(
             [-1.03052963e-04, -2.77224838e-02, 4.87648024e00, 2.05097273e03]
         )
-        # self.__cv_air = np.float64(718)
-        # self.__cv_water_vapor = np.float64(1435.9)
+        # self._cv_air = np.float64(718)
+        # self._cv_water_vapor = np.float64(1435.9)
 
-        # self.__delta_h_evaporation = np.float64(2500900)
-        self.__delta_h_melting = np.float64(333400)
+        # self._delta_h_evaporation = np.float64(2500900)
+        self._delta_h_melting = np.float64(333400)
 
-        self.__T_triple = np.float64(273.16)
-        self.__p_triple = np.float64(611.657 / 10 ** 5)
+        self._T_triple = np.float64(273.16)
+        self._p_triple = np.float64(611.657 / 10 ** 5)
 
         # Reference state
-        self.__h_humid_air_0 = np.float64(
-            HAPropsSI("H", "T", self.__T_triple, "P", self.__p_triple * 10 ** 5, "R", 0)
+        self._h_humid_air_0 = np.float64(
+            HAPropsSI("H", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "R", 0)
         )
-        self.__h_water_liquid_0 = np.float64(
-            PropsSI("H", "T", self.__T_triple, "P", self.__p_triple * 10 ** 5, "Water")
+        self._h_water_liquid_0 = np.float64(
+            PropsSI("H", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "Water")
         )
-        self.__h_water_ice_0 = np.float64(0.0)
-        self.__s_humid_air_0 = np.float64(
-            HAPropsSI("S", "T", self.__T_triple, "P", self.__p_triple * 10 ** 5, "R", 0)
+        self._h_water_ice_0 = np.float64(0.0)
+        self._s_humid_air_0 = np.float64(
+            HAPropsSI("S", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "R", 0)
         )
-        self.__s_water_liquid_0 = np.float64(
-            PropsSI("S", "T", self.__T_triple, "P", self.__p_triple * 10 ** 5, "Water")
+        self._s_water_liquid_0 = np.float64(
+            PropsSI("S", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "Water")
         )
-        self.__s_water_ice_0 = np.float64(0.0)
+        self._s_water_ice_0 = np.float64(0.0)
 
     @property
     def cpmass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1008,11 +1008,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Specific heat at constant pressure in J/kg/K
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            cp = HAPropsSI("C", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            cp = HAPropsSI("C", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            cp = HAPropsSI("C", "T", self.__T, "P", self.__p, "R", 1)
+            cp = HAPropsSI("C", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(cp)
 
@@ -1035,11 +1035,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Specific heat at constant volume in J/kg/K
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            cv = HAPropsSI("CV", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            cv = HAPropsSI("CV", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            cv = HAPropsSI("CV", "T", self.__T, "P", self.__p, "R", 1)
+            cv = HAPropsSI("CV", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(cv)
 
@@ -1062,7 +1062,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass-specific enthalpy in J/kg
 
         """
-        return self.__h_pTw(p=self.__p, T=self.__T, w=self.__w)
+        return self._h_pTw(p=self._p, T=self._T, w=self._w)
 
     @property
     def hmolar(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1083,11 +1083,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Thermal conductivity in W/m/K
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            conductivity = HAPropsSI("K", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            conductivity = HAPropsSI("K", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            conductivity = HAPropsSI("K", "T", self.__T, "P", self.__p, "R", 1)
+            conductivity = HAPropsSI("K", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(conductivity)
 
@@ -1099,11 +1099,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Dynamic viscosity in Pa*s
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            viscosity = HAPropsSI("M", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            viscosity = HAPropsSI("M", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            viscosity = HAPropsSI("M", "T", self.__T, "P", self.__p, "R", 1)
+            viscosity = HAPropsSI("M", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(viscosity)
 
@@ -1115,7 +1115,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Pressure in Pa
 
         """
-        return self.__p
+        return self._p
 
     @property
     def rhomass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1125,11 +1125,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Density in kg/m**3
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            rho = 1.0 / HAPropsSI("V", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            rho = 1.0 / HAPropsSI("V", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            rho = 1.0 / HAPropsSI("V", "T", self.__T, "P", self.__p, "R", 1)
+            rho = 1.0 / HAPropsSI("V", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(rho)
 
@@ -1152,14 +1152,14 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Specific gas constant in J/mol/K
 
         """
-        if self.__w <= self.ws:  # under-saturated
-            gas_constant = (1 - self.__w / (1 + self.__w)) * self.__R_air + (
-                self.__w / (1 + self.__w)
-            ) * self.__R_water
+        if self._w <= self.ws:  # under-saturated
+            gas_constant = (1 - self._w / (1 + self._w)) * self._R_air + (
+                self._w / (1 + self._w)
+            ) * self._R_water
         else:  # saturated
-            gas_constant = (1 - self.ws / (1 + self.ws)) * self.__R_air + (
+            gas_constant = (1 - self.ws / (1 + self.ws)) * self._R_air + (
                 self.ws / (1 + self.ws)
-            ) * self.__R_water
+            ) * self._R_water
 
         return gas_constant
 
@@ -1171,7 +1171,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass flow in kg/s
 
         """
-        return self.__m_flow
+        return self._m_flow
 
     @m_flow.setter
     def m_flow(self: MediumCoolPropHumidAir, value: np.float64) -> None:
@@ -1181,7 +1181,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass flow in kg/s
 
         """
-        self.__m_flow = value
+        self._m_flow = value
 
     @property
     def smass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1191,7 +1191,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass-specific entropy in J/kg/K
 
         """
-        return self.__s_pTw(p=self.__p, T=self.__T, w=self.__w)
+        return self._s_pTw(p=self._p, T=self._T, w=self._w)
 
     @property
     def smolar(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1212,7 +1212,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Temperature in K
 
         """
-        return self.__T
+        return self._T
 
     @property
     def vmass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1222,11 +1222,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Specific volume in m**3/kg
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            v = HAPropsSI("V", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            v = HAPropsSI("V", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            v = HAPropsSI("V", "T", self.__T, "P", self.__p, "R", 1)
+            v = HAPropsSI("V", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(v)
 
@@ -1260,11 +1260,11 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Compressibility factor
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            Z = HAPropsSI("Z", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            Z = HAPropsSI("Z", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
-            Z = HAPropsSI("Z", "T", self.__T, "P", self.__p, "R", 1)
+            Z = HAPropsSI("Z", "T", self._T, "P", self._p, "R", 1)
 
         return np.float64(Z)
 
@@ -1276,7 +1276,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Humidity ratio
 
         """
-        return self.__w
+        return self._w
 
     @property
     def ws(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1286,7 +1286,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Humidity ratio
 
         """
-        return self.__ws_pT(p=self.__p, T=self.__T)
+        return self._ws_pT(p=self._p, T=self._T)
 
     @property
     def phi(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1296,8 +1296,8 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Relative humidity
 
         """
-        if self.ws >= self.__w:  # under-saturated
-            phi = HAPropsSI("R", "T", self.__T, "P", self.__p, "W", self.__w)
+        if self.ws >= self._w:  # under-saturated
+            phi = HAPropsSI("R", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
             phi = 1.0
@@ -1359,13 +1359,13 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
     def __w_hardy_pTphi(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, phi: np.float64
     ) -> np.float64:
-        ps = self.__ps_hardy_pT(p, T)
+        ps = self._ps_hardy_pT(p, T)
 
         w = abs(0.622 * ((phi * ps) / (p - phi * ps)))
         return w
 
     def __ws_hardy_pT(self: MediumCoolPropHumidAir, p: np.float64, T: np.float64):
-        ps = self.__ps_hardy_pT(p, T)
+        ps = self._ps_hardy_pT(p, T)
 
         ws = abs(0.622 * (ps / (p - ps)))
         return ws
@@ -1373,7 +1373,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
     # def __phi_hardy_pTw(
     #     self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
     # ) -> np.float64:
-    #     phi = (p / self.__ps_hardy_pT(p, T)) * (w / (0.622 + w))
+    #     phi = (p / self._ps_hardy_pT(p, T)) * (w / (0.622 + w))
     #     return phi
 
     def __w_pTphi(
@@ -1387,9 +1387,9 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             logger.debug("Humid air water content out of definition range in CoolProp.")
 
             if 0.0 <= phi < 1.0:
-                w = self.__w_hardy_pTphi(p, T, phi)
+                w = self._w_hardy_pTphi(p, T, phi)
             elif phi == 1.0:
-                w = self.__ws_hardy_pT(p, T)
+                w = self._ws_hardy_pT(p, T)
             else:
                 logger.error(
                     "Humid air relative humidity is not between 0 and 1: %f", phi
@@ -1401,7 +1401,7 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
     def __ws_pT(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64
     ) -> np.float64:
-        return self.__w_pTphi(p=p, T=T, phi=np.float64(1.0))
+        return self._w_pTphi(p=p, T=T, phi=np.float64(1.0))
 
     def __h_pTw(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
@@ -1412,31 +1412,31 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass-specific enthalpy in J/kg
 
         """
-        ws = self.__ws_pT(p=p, T=T)
+        ws = self._ws_pT(p=p, T=T)
 
         if ws >= w:  # under saturated
-            h = HAPropsSI("H", "T", T, "P", p, "W", w) - self.__h_humid_air_0
+            h = HAPropsSI("H", "T", T, "P", p, "W", w) - self._h_humid_air_0
 
         else:  # saturated
-            if T > self.__T_tr:  # saturated with liquid water
+            if T > self._T_tr:  # saturated with liquid water
                 h = (
                     HAPropsSI("H", "T", T, "P", p, "R", 1)
-                    - self.__h_humid_air_0
+                    - self._h_humid_air_0
                     + (w - ws)
-                    * (PropsSI("H", "T", T, "Q", 0, "Water") - self.__h_water_liquid_0)
+                    * (PropsSI("H", "T", T, "Q", 0, "Water") - self._h_water_liquid_0)
                 )
 
-            elif T < self.__T_tr:  # saturated with water ice
+            elif T < self._T_tr:  # saturated with water ice
                 h = (
                     HAPropsSI("H", "T", T, "P", p, "R", 1)
-                    - self.__h_humid_air_0
+                    - self._h_humid_air_0
                     + (w - ws)
                     * (
                         (
-                            -self.__delta_h_melting
-                            + self.__cp_water_ice_poly(T - 273.15) * (T - self.__T_tr)
+                            -self._delta_h_melting
+                            + self._cp_water_ice_poly(T - 273.15) * (T - self._T_tr)
                         )
-                        - self.__h_water_ice_0
+                        - self._h_water_ice_0
                     )
                 )
 
@@ -1455,34 +1455,34 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
             np.float64: Mass-specific entropy in J/kg/K
 
         """
-        ws = self.__ws_pT(p=p, T=T)
+        ws = self._ws_pT(p=p, T=T)
 
         if ws >= w:  # under saturated
-            s = HAPropsSI("S", "T", T, "P", p, "W", w) - self.__s_humid_air_0
+            s = HAPropsSI("S", "T", T, "P", p, "W", w) - self._s_humid_air_0
 
         else:  # saturated
-            if T > self.__T_tr:  # saturated with liquid water
+            if T > self._T_tr:  # saturated with liquid water
                 s = (
                     HAPropsSI("S", "T", T, "P", p, "R", 1)
-                    - self.__s_humid_air_0
+                    - self._s_humid_air_0
                     + (w - ws)
-                    * (PropsSI("S", "T", T, "Q", 0, "Water") - self.__s_water_liquid_0)
+                    * (PropsSI("S", "T", T, "Q", 0, "Water") - self._s_water_liquid_0)
                 )
 
-            elif T < self.__T_tr:  # saturated with water ice
+            elif T < self._T_tr:  # saturated with water ice
                 s = (
                     HAPropsSI("S", "T", T, "P", p, "R", 1)
-                    - self.__s_humid_air_0
+                    - self._s_humid_air_0
                     + (w - ws)
                     * (
                         (
-                            (-1.0) * (self.__delta_h_melting / self.__T_tr)
-                            + self.__cp_water_ice_poly(T - 273.15)
+                            (-1.0) * (self._delta_h_melting / self._T_tr)
+                            + self._cp_water_ice_poly(T - 273.15)
                             * math.log(T)
-                            / self.__T_tr
+                            / self._T_tr
                         )
                     )
-                    - self.__s_water_ice_0
+                    - self._s_water_ice_0
                 )
 
             else:
@@ -1498,12 +1498,12 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         h: np.float64,
         w: np.float64,
     ):
-        return h - self.__h_pTw(p=p, T=T, w=w)
+        return h - self._h_pTw(p=p, T=T, w=w)
 
     def __T_phw(
         self: MediumCoolPropHumidAir, p: np.float64, h: np.float64, w: np.float64
     ):
-        T = opt.fsolve(self.__T_phw_fun, self.__T, args=(p, h, w))[0]
+        T = opt.fsolve(self._T_phw_fun, self._T, args=(p, h, w))[0]
 
         return np.float64(T)
 
@@ -1514,12 +1514,12 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         s: np.float64,
         w: np.float64,
     ):
-        return s - self.__s_pTw(p=p, T=T, w=w)
+        return s - self._s_pTw(p=p, T=T, w=w)
 
     def __T_psw(
         self: MediumCoolPropHumidAir, p: np.float64, s: np.float64, w: np.float64
     ):
-        T = opt.fsolve(self.__T_psw_fun, self.__T, args=(p, s, w))[0]
+        T = opt.fsolve(self._T_psw_fun, self._T, args=(p, s, w))[0]
 
         return np.float64(T)
 
@@ -1530,12 +1530,12 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         h: np.float64,
         w: np.float64,
     ):
-        return h - self.__h_pTw(p=p, T=T, w=w)
+        return h - self._h_pTw(p=p, T=T, w=w)
 
     def __p_Thw(
         self: MediumCoolPropHumidAir, T: np.float64, h: np.float64, w: np.float64
     ):
-        p = opt.fsolve(self.__p_Thw_fun, self.__p, args=(T, h, w))[0]
+        p = opt.fsolve(self._p_Thw_fun, self._p, args=(T, h, w))[0]
 
         return np.float64(p)
 
@@ -1546,49 +1546,49 @@ class MediumCoolPropHumidAir(MediumBinaryMixture):
         s: np.float64,
         w: np.float64,
     ):
-        return s - self.__s_pTw(p=p, T=T, w=w)
+        return s - self._s_pTw(p=p, T=T, w=w)
 
     def __p_Tsw(
         self: MediumCoolPropHumidAir, T: np.float64, s: np.float64, w: np.float64
     ):
-        p = opt.fsolve(self.__p_Tsw_fun, self.__p, args=(T, s, w))[0]
+        p = opt.fsolve(self._p_Tsw_fun, self._p, args=(T, s, w))[0]
 
         return np.float64(p)
 
     def set_pTw(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
     ) -> None:
-        self.__p = p
-        self.__T = T
-        self.__w = w
+        self._p = p
+        self._T = T
+        self._w = w
 
     def set_phw(
         self: MediumCoolPropHumidAir, p: np.float64, h: np.float64, w: np.float64
     ) -> None:
-        self.__p = p
-        self.__T = self.__T_phw(p=p, h=h, w=w)
-        self.__w = w
+        self._p = p
+        self._T = self._T_phw(p=p, h=h, w=w)
+        self._w = w
 
     def set_Thw(
         self: MediumCoolPropHumidAir, T: np.float64, h: np.float64, w: np.float64
     ) -> None:
-        self.__p = self.__p_Thw(T=T, h=h, w=w)
-        self.__T = T
-        self.__w = w
+        self._p = self._p_Thw(T=T, h=h, w=w)
+        self._T = T
+        self._w = w
 
     def set_psw(
         self: MediumCoolPropHumidAir, p: np.float64, s: np.float64, w: np.float64
     ) -> None:
-        self.__p = p
-        self.__T = self.__T_psw(p=p, s=s, w=w)
-        self.__w = w
+        self._p = p
+        self._T = self._T_psw(p=p, s=s, w=w)
+        self._w = w
 
     def set_Tsw(
         self: MediumCoolPropHumidAir, T: np.float64, s: np.float64, w: np.float64
     ) -> None:
-        self.__p = self.__p_Tsw(T=T, s=s, w=w)
-        self.__T = T
-        self.__w = w
+        self._p = self._p_Tsw(T=T, s=s, w=w)
+        self._T = T
+        self._w = w
 
 
 if __name__ == "__main__":

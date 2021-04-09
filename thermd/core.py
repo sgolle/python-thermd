@@ -106,30 +106,30 @@ class BaseSystemClass(ABC):
 
         """
         # System parameter
-        self.__stop_criterion_energy = np.float64(1)
-        self.__stop_criterion_momentum = np.float64(1)
-        self.__stop_criterion_mass = np.float64(0.001)
-        self.__iteration_counter = np.uint16(0)
-        self.__max_iteration_counter = np.uint16(1000)
+        self._stop_criterion_energy = np.float64(1)
+        self._stop_criterion_momentum = np.float64(1)
+        self._stop_criterion_mass = np.float64(0.001)
+        self._iteration_counter = np.uint16(0)
+        self._max_iteration_counter = np.uint16(1000)
 
         if "stop_criterion_energy" in kwargs:
-            self.__stop_criterion_energy = np.float64(kwargs["stop_criterion_energy"])
+            self._stop_criterion_energy = np.float64(kwargs["stop_criterion_energy"])
         if "stop_criterion_momentum" in kwargs:
-            self.__stop_criterion_momentum = np.float64(
+            self._stop_criterion_momentum = np.float64(
                 kwargs["stop_criterion_momentum"]
             )
         if "stop_criterion_mass" in kwargs:
-            self.__stop_criterion_mass = np.float64(kwargs["stop_criterion_mass"])
+            self._stop_criterion_mass = np.float64(kwargs["stop_criterion_mass"])
         if "max_iteration_counter" in kwargs:
-            self.__max_iteration_counter = np.uint16(kwargs["max_iteration_counter"])
+            self._max_iteration_counter = np.uint16(kwargs["max_iteration_counter"])
 
         # Initialize index lists of models, blocks, ports, states and signals
-        self.__models: List[str] = list()
-        self.__blocks: List[str] = list()
-        self.__ports: Dict[str, List[str]] = dict()
+        self._models: List[str] = list()
+        self._blocks: List[str] = list()
+        self._ports: Dict[str, List[str]] = dict()
 
         # Initialize main graph
-        self.__network = nx.DiGraph()
+        self._network = nx.DiGraph()
 
     # @classmethod
     # def from_file(cls: Type[BaseSystemClass], filename: str) -> BaseSystemClass:
@@ -140,16 +140,16 @@ class BaseSystemClass(ABC):
 
     # @property
     # def network(self):
-    #     return self.__network
+    #     return self._network
 
     def clear(self: BaseSystemClass):
-        self.__network.clear()
+        self._network.clear()
 
     def freeze(self: BaseSystemClass):
-        self.__network.freeze()
+        self._network.freeze()
 
     def is_frozen(self: BaseSystemClass):
-        self.__network.is_frozen()
+        self._network.is_frozen()
 
     def add_model(
         self: BaseSystemClass, node_class: BaseModelClass,
@@ -157,32 +157,32 @@ class BaseSystemClass(ABC):
 
         logger.info("Add model: %s", node_class.name)
 
-        if node_class.name in self.__blocks:
+        if node_class.name in self._blocks:
             logger.error("Model name already in use: %s", node_class.name)
 
-        self.__network.add_node(
+        self._network.add_node(
             node_class.name, node_type=NodeTypes.MODEL, node_class=node_class
         )
-        self.__models.append(node_class.name)
-        self.__ports[node_class.name] = list()
+        self._models.append(node_class.name)
+        self._ports[node_class.name] = list()
 
         for port in node_class.ports.values():
 
             logger.info("Add port: %s", port.name)
 
-            self.__network.add_node(port.name, node_type=NodeTypes.PORT)
-            self.__ports[node_class.name].append(port.name)
+            self._network.add_node(port.name, node_type=NodeTypes.PORT)
+            self._ports[node_class.name].append(port.name)
 
             if (
                 port.port_type == PortTypes.STATE_INLET
                 or port.port_type == PortTypes.SIGNAL_INLET
             ):
-                self.__network.add_edge(port.name, node_class.name)
+                self._network.add_edge(port.name, node_class.name)
             elif (
                 port.port_type == PortTypes.STATE_OUTLET
                 or port.port_type == PortTypes.SIGNAL_OUTLET
             ):
-                self.__network.add_edge(node_class.name, port.name)
+                self._network.add_edge(node_class.name, port.name)
             else:
                 logger.error("Wrong port function: %s", port.port_type)
                 raise SystemExit
@@ -193,32 +193,32 @@ class BaseSystemClass(ABC):
 
         logger.info("Add block: %s", node_class.name)
 
-        if node_class.name in self.__blocks:
+        if node_class.name in self._blocks:
             logger.error("Block name already in use: %s", node_class.name)
 
-        self.__network.add_node(
+        self._network.add_node(
             node_class.name, node_type=NodeTypes.BLOCK, node_class=node_class
         )
-        self.__blocks.append(node_class.name)
-        self.__ports[node_class.name] = list()
+        self._blocks.append(node_class.name)
+        self._ports[node_class.name] = list()
 
         for port in node_class.ports.values():
 
             logger.info("Add port: %s", port.name)
 
-            self.__network.add_node(port.name, node_type=NodeTypes.PORT)
-            self.__ports[node_class.name].append(port.name)
+            self._network.add_node(port.name, node_type=NodeTypes.PORT)
+            self._ports[node_class.name].append(port.name)
 
             if (
                 port.port_type == PortTypes.STATE_INLET
                 or port.port_type == PortTypes.SIGNAL_INLET
             ):
-                self.__network.add_edge(port.name, node_class.name)
+                self._network.add_edge(port.name, node_class.name)
             elif (
                 port.port_type == PortTypes.STATE_OUTLET
                 or port.port_type == PortTypes.SIGNAL_OUTLET
             ):
-                self.__network.add_edge(node_class.name, port.name)
+                self._network.add_edge(node_class.name, port.name)
             else:
                 logger.error("Wrong port function: %s", port.port_type)
                 raise SystemExit
@@ -227,55 +227,47 @@ class BaseSystemClass(ABC):
         self: BaseSystemClass, port1: BasePortClass, port2: BasePortClass,
     ):
         if port1.__class__.__name__ == port2.__class__.__name__:
+            if (
+                port1.port_type == PortTypes.STATE_OUTLET
+                or port1.port_type == PortTypes.SIGNAL_OUTLET
+            ) and (
+                port2.port_type == PortTypes.STATE_INLET
+                or port2.port_type == PortTypes.SIGNAL_INLET
+            ):
 
-            self.__network.add_edge(port1.name, port2.name)
+                self._network.add_edge(port1.name, port2.name)
 
+            else:
+                logger.error(
+                    (
+                        "First port must be outlet and second port must be "
+                        "inlet port of associated models/blocks: %s <-> %s"
+                    ),
+                    port1.name,
+                    port2.name,
+                )
+                raise SystemExit
         else:
             logger.error("Port types not compatible: %s <-> %s", port1.name, port2.name)
             raise SystemExit
 
-    # def get_inlet_connector(
-    #     self: BaseSystemClass, port_name: str
-    # ) -> Union[BaseStateClass, BaseSignalClass]:
-    #     connector = None
-    #     for connector_node in self.__network.predecessors(port_name):
-    #         connector = connector_node["node_class"]
-
-    #     if connector is None:
-    #         logger.error(
-    #             "Port %s does not have a predecessor connector node!", port_name
-    #         )
-    #         raise SystemExit
-
-    #     return connector
-
-    # def get_outlet_connector(
-    #     self: BaseSystemClass, port_name: str
-    # ) -> Union[BaseStateClass, BaseSignalClass]:
-    #     connector = None
-    #     for connector_node in self.__network.successors(port_name):
-    #         connector = connector_node["node_class"]
-
-    #     if connector is None:
-    #         logger.error("Port %s does not have a successor connector node!", port_name)
-    #         raise SystemExit
-
-    #     return connector
-
     def check(self: BaseSystemClass):
         # Check all models
-        for model in self.__models:
-            if not self.__network[model]["node_class"].check():
+        for model in self._models:
+            if not self._network.nodes[model]["node_class"].check():
                 logger.error("Model %s shows an error.", model)
 
         # Check all blocks
-        for block in self.__blocks:
-            if not self.__network[block]["node_class"].check():
+        for block in self._blocks:
+            if not self._network.nodes[block]["node_class"].check():
                 logger.error("Block %s shows an error.", block)
 
     def plot_graph(self: BaseSystemClass, path: Path):
-        nx.draw(self.__network, with_labels=True)
+        nx.draw(self._network, with_labels=True)
         plt.savefig(path)
+
+    def save_results(self: BaseSystemClass):
+        ...
 
     @abstractmethod
     def stop_criterion(self: BaseSystemClass) -> bool:
@@ -301,21 +293,21 @@ class BaseModelClass(ABC):
 
         """
         # Class properties
-        self.__name = name
-        self.__ports: Dict[str, BasePortClass] = dict()
+        self._name = name
+        self._ports: Dict[str, BasePortClass] = dict()
 
         # Balances
-        self.__energy_balance = np.float64(0.0)
-        self.__momentum_balance = np.float64(0.0)
-        self.__mass_balance = np.float64(0.0)
+        self._energy_balance = np.float64(0.0)
+        self._momentum_balance = np.float64(0.0)
+        self._mass_balance = np.float64(0.0)
 
     @property
     def name(self: BaseModelClass) -> str:
-        return self.__name
+        return self._name
 
     @property
     def ports(self: BaseModelClass) -> Dict[str, BasePortClass]:
-        return self.__ports
+        return self._ports
 
     @property
     @abstractmethod
@@ -332,24 +324,27 @@ class BaseModelClass(ABC):
     def stop_criterion_mass(self: BaseModelClass) -> np.float64:
         ...
 
+    def add_port(self: BaseModelClass, port: BasePortClass) -> None:
+        self._ports[port.name] = port
+
     def set_port_attr(
         self: BaseModelClass,
         port_name: str,
         port_attr: Union[BaseStateClass, BaseSignalClass],
     ) -> None:
-        if port_name in self.__ports:
+        if port_name in self._ports:
             if (
-                isinstance(self.__ports[port_name], PortState)
+                isinstance(self._ports[port_name], PortState)
                 and isinstance(port_attr, BaseStateClass)
             ) or (
-                isinstance(self.__ports[port_name], PortSignal)
+                isinstance(self._ports[port_name], PortSignal)
                 and isinstance(port_attr, BaseSignalClass)
             ):
-                self.__ports[port_name].port_attr = port_attr
+                self._ports[port_name].port_attr = port_attr
             else:
                 logger.error(
                     "Port attribute and class doesn't match: %s -> %s.",
-                    self.__ports[port_name].__class__.__name__,
+                    self._ports[port_name].__class__.__name__,
                     port_attr.__class__.__name__,
                 )
                 raise SystemExit
@@ -386,16 +381,16 @@ class BaseBlockClass(ABC):
 
         """
         # Class properties
-        self.__name = name
-        self.__ports: Dict[str, Union[PortState, PortSignal]] = dict()
+        self._name = name
+        self._ports: Dict[str, BasePortClass] = dict()
 
     @property
     def name(self: BaseBlockClass) -> str:
-        return self.__name
+        return self._name
 
     @property
-    def ports(self: BaseBlockClass) -> Dict[str, Union[PortState, PortSignal]]:
-        return self.__ports
+    def ports(self: BaseBlockClass) -> Dict[str, BasePortClass]:
+        return self._ports
 
     @property
     @abstractmethod
@@ -411,6 +406,32 @@ class BaseBlockClass(ABC):
     @abstractmethod
     def stop_criterion_mass(self: BaseBlockClass) -> np.float64:
         ...
+
+    def add_port(self: BaseBlockClass, port: BasePortClass) -> None:
+        self._ports[port.name] = port
+
+    def set_port_attr(
+        self: BaseBlockClass, port_name: str, port_attr: BaseSignalClass,
+    ) -> None:
+        if port_name in self._ports:
+            if isinstance(self._ports[port_name], PortSignal) and isinstance(
+                port_attr, BaseSignalClass
+            ):
+                self._ports[port_name].port_attr = port_attr
+            else:
+                logger.error(
+                    (
+                        "Port class must be PortSignal and port attribute must be "
+                        "BaseSignalClass: %s -> %s."
+                    ),
+                    self._ports[port_name].__class__.__name__,
+                    port_attr.__class__.__name__,
+                )
+                raise SystemExit
+
+        else:
+            logger.error("Unknown port name: %s.", port_name)
+            raise SystemExit
 
     @abstractmethod
     def check(self: BaseBlockClass) -> bool:
@@ -444,27 +465,27 @@ class BasePortClass(ABC):
 
         """
         # Class properties
-        self.__name = name
-        self.__port_type = port_type
-        self.__port_attr = port_attr
+        self._name = name
+        self._port_type = port_type
+        self._port_a_namettr = port_attr
 
     @property
     def name(self: BasePortClass) -> str:
-        return self.__name
+        return self._name
 
     @property
     def port_type(self: BasePortClass) -> PortTypes:
-        return self.__port_type
+        return self._port_type
 
     @property
     def port_attr(self: BasePortClass) -> Union[BaseStateClass, BaseSignalClass]:
-        return self.__port_attr
+        return self._port_a_namettr
 
     @port_attr.setter
     def port_attr(
         self: BasePortClass, port_attr: Union[BaseStateClass, BaseSignalClass]
     ) -> None:
-        self.__port_attr = port_attr
+        self._port_a_namettr = port_attr
 
 
 class BaseStateClass(ABC):
@@ -725,39 +746,45 @@ class SystemSimpleIterative(BaseSystemClass):
         super().__init__(**kwargs)
 
         # Additional system parameter
-        # self.__start_node: List[str] = list()
-        # self.__end_node: List[str] = list()
-        self.__simulation_nodes: List[str] = list()
+        # self._start_node: List[str] = list()
+        # self._end_node: List[str] = list()
+        self._simulation_nodes: List[str] = list()
 
         # if "start_node" in kwargs:
-        #     self.__start_node = kwargs["start_node"]
+        #     self._start_node = kwargs["start_node"]
 
         # if kwargs["start_node"] is None:
-        #     kwargs["start_node"] = self.__models[0]
+        #     kwargs["start_node"] = self._models[0]
 
     def stop_criterion(self: SystemSimpleIterative) -> bool:
-        self.__iteration_counter += np.uint16(1)
-
-        if self.__iteration_counter == 0:
+        # Iteration counter
+        if self._iteration_counter == 0:
+            self._iteration_counter += np.uint16(1)
             return True
-        if self.__iteration_counter > self.__max_iteration_counter:
+        self._iteration_counter += np.uint16(1)
+
+        if self._iteration_counter > self._max_iteration_counter:
             return False
 
-        for node_name in self.__simulation_nodes:
-
+        # Stop criterions of models and blocks
+        for node_name in self._simulation_nodes:
             if (
-                np.abs(self.__network[node_name]["node_class"].stop_criterion_energy)
-                > self.__stop_criterion_energy
+                np.abs(
+                    self._network.nodes[node_name]["node_class"].stop_criterion_energy
+                )
+                > self._stop_criterion_energy
             ):
                 return True
             if (
-                np.abs(self.__network[node_name]["node_class"].stop_criterion_momentum)
-                > self.__stop_criterion_momentum
+                np.abs(
+                    self._network.nodes[node_name]["node_class"].stop_criterion_momentum
+                )
+                > self._stop_criterion_momentum
             ):
                 return True
             if (
-                np.abs(self.__network[node_name]["node_class"].stop_criterion_mass)
-                > self.__stop_criterion_mass
+                np.abs(self._network.nodes[node_name]["node_class"].stop_criterion_mass)
+                > self._stop_criterion_mass
             ):
                 return True
 
@@ -765,7 +792,7 @@ class SystemSimpleIterative(BaseSystemClass):
 
     def pre_solve(self: SystemSimpleIterative):
         self.check()
-        self.__simulation_nodes = self.__models + self.__blocks
+        self._simulation_nodes = self._models + self._blocks
 
     def solve(self: SystemSimpleIterative):
         logger.info("Start solver.")
@@ -776,19 +803,19 @@ class SystemSimpleIterative(BaseSystemClass):
         while self.stop_criterion():
             logger.info(
                 "Iteration count: %s of %s",
-                str(self.__iteration_counter),
-                str(self.__max_iteration_counter),
+                str(self._iteration_counter),
+                str(self._max_iteration_counter),
             )
-            for node_name in self.__simulation_nodes:
+            for node_name in self._simulation_nodes:
                 logger.info("Calculate node %s", node_name)
 
-                self.__network[node_name]["node_class"].equation()
+                self._network.nodes[node_name]["node_class"].equation()
 
-                for outlet_port_name in self.__network.successors(node_name):
-                    for connected_port_name in self.__network.successors(
+                for outlet_port_name in self._network.successors(node_name):
+                    for connected_port_name in self._network.successors(
                         outlet_port_name
                     ):
-                        for successor_node_name in self.__network.successors(
+                        for successor_node_name in self._network.successors(
                             connected_port_name
                         ):
                             logger.info(
@@ -798,12 +825,13 @@ class SystemSimpleIterative(BaseSystemClass):
                                 outlet_port_name,
                                 node_name,
                             )
-                            self.__network[successor_node_name].ports[
-                                connected_port_name
-                            ].port_attr = (
-                                self.__network[node_name]
+                            self._network.nodes[successor_node_name][
+                                "node_class"
+                            ].set_port_attr(
+                                connected_port_name,
+                                self._network.nodes[node_name]["node_class"]
                                 .ports[outlet_port_name]
-                                .port_attr
+                                .port_attr,
                             )
 
 
@@ -818,18 +846,18 @@ class PortState(BasePortClass):
 
     @property
     def state(self: PortState) -> BaseStateClass:
-        if not isinstance(self.__port_attr, BaseStateClass):
+        if not isinstance(self._port_a_namettr, BaseStateClass):
             logger.error(
                 "Port has wrong attribute type: PortState -> %s",
-                self.__port_attr.__class__.__name__,
+                self._port_a_namettr.__class__.__name__,
             )
             raise SystemExit
 
-        return self.__port_attr
+        return self._port_a_namettr
 
     @state.setter
     def state(self: PortState, state: BaseStateClass) -> None:
-        self.__port_attr = state
+        self._port_a_namettr = state
 
 
 class PortSignal(BasePortClass):
@@ -842,22 +870,22 @@ class PortSignal(BasePortClass):
 
     @property
     def signal(self: PortSignal) -> BaseSignalClass:
-        if not isinstance(self.__port_attr, BaseSignalClass):
+        if not isinstance(self._port_a_namettr, BaseSignalClass):
             logger.error(
                 "Port has wrong attribute type: PortSignal -> %s",
-                self.__port_attr.__class__.__name__,
+                self._port_a_namettr.__class__.__name__,
             )
             raise SystemExit
 
-        return self.__port_attr
+        return self._port_a_namettr
 
     @signal.setter
     def signal(self: PortSignal, signal: BaseSignalClass) -> None:
-        self.__port_attr = signal
+        self._port_a_namettr = signal
 
 
 # State/ media classes
-class MediumPure(BaseStateClass):
+class MediumBase(BaseStateClass):
     """Class of pure or pseudo-pure (mixtures) media.
 
     The medium class of pure fluids provides the API for all derived
@@ -895,7 +923,7 @@ class MediumPure(BaseStateClass):
         ...
 
 
-class MediumBinaryMixture(BaseStateClass):
+class MediumHumidAir(BaseStateClass):
     """Class of binary mixtures media.
 
     The medium class of binary mixtures provides the API for all derived

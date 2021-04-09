@@ -8,25 +8,26 @@ Beschreibung
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict, Union
 
-from CoolProp.CoolProp import PropsSI
-from CoolProp.HumidAirProp import HAPropsSI
+# from typing import List, Dict, Union
+
+# from CoolProp.CoolProp import PropsSI
+# from CoolProp.HumidAirProp import HAPropsSI
 import math
 import numpy as np
 from scipy import optimize as opt
 from thermd.core import (
     BaseResultClass,
     BaseModelClass,
-    BasePortClass,
+    # BasePortClass,
     BaseStateClass,
-    BaseSignalClass,
-    MediumBinaryMixture,
+    # BaseSignalClass,
+    MediumHumidAir,
     PortState,
-    PortSignal,
+    # PortSignal,
     PortTypes,
-    MediumPure,
-    # MediumBinaryMixture,
+    MediumBase,
+    # MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -107,7 +108,7 @@ class HXMixin:
         return eps
 
     @staticmethod
-    def N_eps_crossflow_unmixed_interpol(N, eps, C):
+    def N_eps_crossflow_unmixed_interp(N, eps, C):
         return eps - (
             1 - math.exp((1 / C) * (N ** 0.22) * (math.exp(-C * N ** 0.78) - 1))
         )
@@ -116,9 +117,7 @@ class HXMixin:
         if C == 0:
             N = -math.log(1 - eps)
         else:
-            N = opt.fsolve(self.N_eps_crossflow_unmixed_interpol, 0.0, args=(eps, C),)[
-                0
-            ]
+            N = opt.fsolve(self.N_eps_crossflow_unmixed_interp, 0.0, args=(eps, C),)[0]
 
         return N
 
@@ -141,7 +140,11 @@ class HeatSinkSource(BaseModelClass):
     """
 
     def __init__(
-        self: HeatSinkSource, name: str, state0: BaseStateClass, Q: np.float64,
+        self: HeatSinkSource,
+        name: str,
+        state0: BaseStateClass,
+        Q: np.float64,
+        dp: np.float64,
     ):
         """Initialize HeatSinkSource class.
 
@@ -151,36 +154,51 @@ class HeatSinkSource(BaseModelClass):
         super().__init__(name=name)
 
         # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        self._port_a_name = self.name + "_port_a"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Heat sink/source parameters
-        self.__Q = Q
+        self._Q = Q
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: HeatSinkSource) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b(self: HeatSinkSource) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: HeatSinkSource) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: HeatSinkSource) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: HeatSinkSource) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: HeatSinkSource) -> bool:
         return True
@@ -189,32 +207,46 @@ class HeatSinkSource(BaseModelClass):
         return HXResult()
 
     def equation(self: HeatSinkSource):
-        h_out = (
-            self.__Q / self.__ports[self.__port_a].state.m_flow
-            + self.__ports[self.__port_a].state.hmass
-        )
-        if isinstance(self.__ports[self.__port_a].state, MediumPure):
-            self.__ports[self.__port_b].state.set_ph(
-                p=self.__ports[self.__port_a].state.p, h=h_out,
+        # New state
+        if isinstance(self._ports[self._port_a_name].state, MediumBase):
+            h_out = (
+                self._Q / self._ports[self._port_a_name].state.m_flow
+                + self._ports[self._port_a_name].state.hmass
             )
-        elif isinstance(self.__ports[self.__port_a].state, MediumBinaryMixture):
-            self.__ports[self.__port_b].state.set_phw(
-                p=self.__ports[self.__port_a].state.p,
+            self._ports[self._port_b_name].state.set_ph(
+                p=self._ports[self._port_a_name].state.p + self._dp, h=h_out,
+            )
+        elif isinstance(self._ports[self._port_a_name].state, MediumHumidAir):
+            h_out = (
+                self._Q
+                / (
+                    self._ports[self._port_a_name].state.m_flow
+                    / (1 + self._ports[self._port_a_name].state.w)
+                )
+                + self._ports[self._port_a_name].state.hmass
+            )
+            self._ports[self._port_b_name].state.set_phw(
+                p=self._ports[self._port_a_name].state.p + self._dp,
                 h=h_out,
-                w=self.__ports[self.__port_a].state.w,
+                w=self._ports[self._port_a_name].state.w,
             )
         else:
             logger.error(
                 "Wrong medium class in HeatSinkSource class definition: %s. "
-                "Must be MediumPure or MediumBinaryMixture.",
-                self.__ports[self.__port_a].state.super().__class__.__name__,
+                "Must be MediumBase or MediumHumidAir.",
+                self._ports[self._port_a_name].state.super().__class__.__name__,
             )
             raise SystemExit
 
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
+
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 # Heat exchanger classes
@@ -230,47 +262,66 @@ class HXSimple(BaseModelClass, HXMixin):
     def __init__(
         self: HXSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
+        """Initialize HXSimple class.
+
+        Init function of the HXSimple class.
+
+        """
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
         # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        self._port_a_name = self.name + "_port_a"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Pump parameters
-        self.__dp = dp
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: HXSimple) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b(self: HXSimple) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: HXSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: HXSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: HXSimple) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: HXSimple) -> bool:
         return True
@@ -279,17 +330,17 @@ class HXSimple(BaseModelClass, HXMixin):
         return HXResult()
 
     def equation(self: HXSimple):
-        self.__ports[self.__port_b].state.set_ps(
-            p=self.__ports[self.__port_a].state.p + self.__dp,
-            s=self.__ports[self.__port_a].state.s,
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.s,
         )
 
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 if __name__ == "__main__":
     logger = get_logger(__name__)
-    logger.warning("This is the file for the machine model classes.")
+    logger.info("This is the file for the heat exchanger model classes.")

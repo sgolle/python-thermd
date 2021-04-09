@@ -25,8 +25,8 @@ from thermd.core import (
     PortState,
     PortSignal,
     PortTypes,
-    MediumPure,
-    # MediumBinaryMixture,
+    MediumBase,
+    # MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -58,41 +58,41 @@ class HXSimple(BaseModelClass):
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
         # Ports
-        self.__port_inlet = PortState(
+        self._port_inlet = PortState(
             name=name + "_port_a", port_type=PortTypes.INLET, state=state0,
         )
-        self.__port_outlet = PortState(
+        self._port_outlet = PortState(
             name=name + "_port_b", port_type=PortTypes.OUTLET, state=state0,
         )
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
-        self.__dp = dp
+        # self._P = np.float64(0.0)
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
 
     @property
     def stop_criterion_energy(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+        return self._port_outlet.state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+        return self._port_outlet.state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+        return self._port_outlet.state.m_flow - self._last_m_flow
 
     def check(self: HXSimple) -> bool:
         return True
@@ -101,9 +101,9 @@ class HXSimple(BaseModelClass):
         return MachineResult()
 
     def equation(self: HXSimple):
-        self.__port_outlet.state = self.__port_inlet.state
-        self.__port_outlet.state.set_ps(
-            p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
+        self._port_outlet.state = self._port_inlet.state
+        self._port_outlet.state.set_ps(
+            p=self._port_inlet.state.p + self._dp, s=self._port_inlet.state.s
         )
 
 

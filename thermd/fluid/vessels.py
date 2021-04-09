@@ -25,8 +25,8 @@ from thermd.core import (
     PortState,
     PortSignal,
     PortFunctionTypes,
-    MediumPure,
-    # MediumBinaryMixture,
+    MediumBase,
+    # MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -58,71 +58,71 @@ class HXSimple(BaseModelClass):
         super().__init__(name=name)
 
         # Checks
-        if not isinstance(state0, MediumPure):
+        if not isinstance(state0, MediumBase):
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
+                "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
             raise SystemExit
 
         # Ports
-        self.__port_inlet = PortState(
+        self._port_inlet = PortState(
             name=name + "_port_a", port_function=PortFunctionTypes.INLET, state=state0,
         )
-        self.__port_outlet = PortState(
+        self._port_outlet = PortState(
             name=name + "_port_b", port_function=PortFunctionTypes.OUTLET, state=state0,
         )
 
         # Pump parameters
-        # self.__P = np.float64(0.0)
-        self.__dp = dp
+        # self._P = np.float64(0.0)
+        self._dp = dp
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
 
     @property
     def ports(self: HXSimple) -> List[BasePortClass]:
-        return [self.__port_inlet, self.__port_outlet]
+        return [self._port_inlet, self._port_outlet]
 
     # @property
     # def port_inlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_inlet
+    #     return self._port_inlet
 
     # @port_inlet.setter
     # def port_inlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_inlet = port
+    #     self._port_inlet = port
 
     # @property
     # def port_outlet(self: PumpSimple) -> BasePortClass:
-    #     return self.__port_outlet
+    #     return self._port_outlet
 
     # @port_outlet.setter
     # def port_outlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self.__port_outlet = port
+    #     self._port_outlet = port
 
     @property
     def stop_criterion_energy(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.hmass - self.__last_hmass
+        return self._port_outlet.state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.p - self.__last_p
+        return self._port_outlet.state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: HXSimple) -> np.float64:
-        return self.__port_outlet.state.m_flow - self.__last_m_flow
+        return self._port_outlet.state.m_flow - self._last_m_flow
 
     def check(self: HXSimple) -> bool:
         return True
 
     def set_port_state(self: HXSimple, port_name: str, state: BaseStateClass,) -> None:
-        if port_name == self.__port_inlet.name:
-            self.__port_inlet.state = state
+        if port_name == self._port_inlet.name:
+            self._port_inlet.state = state
 
-        elif port_name == self.__port_outlet.name:
-            self.__port_outlet.state = state
+        elif port_name == self._port_outlet.name:
+            self._port_outlet.state = state
 
         else:
             logger.error("Cannot set port state: Unknown port name.")
@@ -131,19 +131,19 @@ class HXSimple(BaseModelClass):
     def set_port_signal(
         self: HXSimple, port_name: str, signal: BaseSignalClass,
     ) -> None:
-        if port_name == self.__port_inlet.name:
-            self.__port_inlet.signal = signal
-        elif port_name == self.__port_outlet.name:
-            self.__port_outlet.signal = signal
+        if port_name == self._port_inlet.name:
+            self._port_inlet.signal = signal
+        elif port_name == self._port_outlet.name:
+            self._port_outlet.signal = signal
         else:
             logger.error("Cannot set port signal: Unknown port name.")
             raise SystemExit
 
     def get_port_state(self: HXSimple, port_name: str,) -> BaseStateClass:
-        if port_name == self.__port_inlet.name:
-            state = self.__port_inlet.state
-        elif port_name == self.__port_outlet.name:
-            state = self.__port_outlet.state
+        if port_name == self._port_inlet.name:
+            state = self._port_inlet.state
+        elif port_name == self._port_outlet.name:
+            state = self._port_outlet.state
         else:
             logger.error("Cannot get port state: Unknown port name.")
             raise SystemExit
@@ -151,10 +151,10 @@ class HXSimple(BaseModelClass):
         return state
 
     def get_port_signal(self: HXSimple, port_name: str,) -> BaseSignalClass:
-        if port_name == self.__port_inlet.name:
-            signal = self.__port_inlet.signal
-        elif port_name == self.__port_outlet.name:
-            signal = self.__port_outlet.signal
+        if port_name == self._port_inlet.name:
+            signal = self._port_inlet.signal
+        elif port_name == self._port_outlet.name:
+            signal = self._port_outlet.signal
         else:
             logger.error("Cannot get port signal: Unknown port name.")
             raise SystemExit
@@ -165,9 +165,9 @@ class HXSimple(BaseModelClass):
         return MachineResult()
 
     def equation(self: HXSimple):
-        self.__port_outlet.state = self.__port_inlet.state
-        self.__port_outlet.state.set_ps(
-            p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
+        self._port_outlet.state = self._port_inlet.state
+        self._port_outlet.state.set_ps(
+            p=self._port_inlet.state.p + self._dp, s=self._port_inlet.state.s
         )
 
 

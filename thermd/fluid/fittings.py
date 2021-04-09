@@ -8,25 +8,26 @@ Beschreibung
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict, Union
 
-from CoolProp.CoolProp import PropsSI
-from CoolProp.HumidAirProp import HAPropsSI
-import math
+# from typing import List, Dict, Union
+
+# from CoolProp.CoolProp import PropsSI
+# from CoolProp.HumidAirProp import HAPropsSI
+# import math
 import numpy as np
-from numpy.lib.ufunclike import isneginf
-from scipy import optimize as opt
+
+# from scipy import optimize as opt
 from thermd.core import (
     BaseResultClass,
     BaseModelClass,
-    BasePortClass,
+    # BasePortClass,
     BaseStateClass,
-    BaseSignalClass,
+    # BaseSignalClass,
     PortState,
-    PortSignal,
+    # PortSignal,
     PortTypes,
-    MediumPure,
-    # MediumBinaryMixture,
+    MediumBase,
+    MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -41,12 +42,127 @@ class FittingsResult(BaseResultClass):
 
 
 # Machine classes
+class JunctionOneToTwo(BaseModelClass):
+    """JunctionOneToTwo class.
+
+    The JunctionOneToTwo class implements a ...
+
+    """
+
+    def __init__(
+        self: JunctionOneToTwo,
+        name: str,
+        state0: BaseStateClass,
+        fraction: np.ndarray[np.float64],
+    ):
+        """Initialize JunctionOneToTwo class.
+
+        Init function of the JunctionOneToTwo class.
+
+        """
+        super().__init__(name=name)
+
+        # Ports
+        self._port_a_name = self.name + "_port_a"
+        self._port_b1_name = self.name + "_port_b1"
+        self._port_b2_name = self.name + "_port_b2"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b1_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b2_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+
+        # Junction parameters
+        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 2:
+            self._fraction = fraction
+        else:
+            logger.error(
+                "Fractions of mass flow not defined correctly: %s.", str(fraction),
+            )
+            raise SystemExit
+
+        # New mass flow fractions
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+
+        # Stop criterions
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b1(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_b1_name]
+
+    @property
+    def port_b2(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_b2_name]
+
+    @property
+    def stop_criterion_energy(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_a_name].state.hmass - self._last_hmass
+
+    @property
+    def stop_criterion_momentum(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_a_name].state.p - self._last_p
+
+    @property
+    def stop_criterion_mass(self: JunctionOneToTwo) -> np.float64:
+        return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
+
+    def check(self: JunctionOneToTwo) -> bool:
+        return True
+
+    def get_results(self: JunctionOneToTwo) -> FittingsResult:
+        return FittingsResult()
+
+    def equation(self: JunctionOneToTwo):
+        # New states
+        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
+
+        # New mass flows
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
+
+
 class JunctionOneToThree(BaseModelClass):
     """JunctionOneToThree class.
 
-    The JunctionOneToThree class implements a pump which delivers the mass flow from the inlet
-    with a constant pressure difference dp and ideal, isentropic behavior.
-    No height or velocity difference between inlet and outlet.
+    The JunctionOneToThree class implements a ...
 
     """
 
@@ -54,49 +170,101 @@ class JunctionOneToThree(BaseModelClass):
         self: JunctionOneToThree,
         name: str,
         state0: BaseStateClass,
-        fraction: np.float64,
+        fraction: np.ndarray[np.float64],
     ):
+        """Initialize JunctionOneToThree class.
+
+        Init function of the JunctionOneToThree class.
+
+        """
         super().__init__(name=name)
 
         # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b1 = name + "_port_b1"
-        self.__port_b2 = name + "_port_b2"
-        self.__port_b3 = name + "_port_b3"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b1: PortState(
-                name=self.__port_b1, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-            self.__port_b2: PortState(
-                name=self.__port_b2, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-            self.__port_b3: PortState(
-                name=self.__port_b3, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
+        self._port_a_name = self.name + "_port_a"
+        self._port_b1_name = self.name + "_port_b1"
+        self._port_b2_name = self.name + "_port_b2"
+        self._port_b3_name = self.name + "_port_b3"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b1_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b2_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b3_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
 
         # Junction parameters
-        self.__fraction = fraction
+        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 3:
+            self._fraction = fraction
+        else:
+            logger.error(
+                "Fractions of mass flow not defined correctly: %s.", str(fraction),
+            )
+            raise SystemExit
+
+        # New mass flow fractions
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+        self._ports[self._port_b3_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[2]
+        )
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: JunctionOneToThree) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b1(self: JunctionOneToThree) -> np.float64:
+        return self._ports[self._port_b1_name]
+
+    @property
+    def port_b2(self: JunctionOneToThree) -> np.float64:
+        return self._ports[self._port_b2_name]
+
+    @property
+    def port_b3(self: JunctionOneToThree) -> np.float64:
+        return self._ports[self._port_b3_name]
 
     @property
     def stop_criterion_energy(self: JunctionOneToThree) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_a_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: JunctionOneToThree) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_a_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: JunctionOneToThree) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
 
     def check(self: JunctionOneToThree) -> bool:
         return True
@@ -105,71 +273,252 @@ class JunctionOneToThree(BaseModelClass):
         return FittingsResult()
 
     def equation(self: JunctionOneToThree):
-        self.__port_outlet.state = self.__port_inlet.state
-        self.__port_outlet.state.set_ps(
-            p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
+        # New states
+        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b3_name].state = self._ports[self._port_a_name].state
+
+        # New mass flows
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+        self._ports[self._port_b3_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[2]
         )
 
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
 
-class JunctionTwoToOne(BaseModelClass):
-    """JunctionOneToThree class.
+class JunctionOneToFour(BaseModelClass):
+    """JunctionOneToFour class.
 
-    The JunctionOneToThree class implements a pump which delivers the mass flow from the inlet
-    with a constant pressure difference dp and ideal, isentropic behavior.
-    No height or velocity difference between inlet and outlet.
+    The JunctionOneToFour class implements a ...
 
     """
 
     def __init__(
-        self: JunctionTwoToOne, name: str, state0: BaseStateClass, dp: np.float64,
+        self: JunctionOneToFour,
+        name: str,
+        state0: BaseStateClass,
+        fraction: np.ndarray[np.float64],
     ):
+        """Initialize JunctionOneToFour class.
+
+        Init function of the JunctionOneToFour class.
+
+        """
         super().__init__(name=name)
 
-        # Checks
-        if not isinstance(state0, MediumPure):
+        # Ports
+        self._port_a_name = self.name + "_port_a"
+        self._port_b1_name = self.name + "_port_b1"
+        self._port_b2_name = self.name + "_port_b2"
+        self._port_b3_name = self.name + "_port_b3"
+        self._port_b4_name = self.name + "_port_b4"
+        self.add_port(
+            PortState(
+                name=self._port_a_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b1_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b2_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b3_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b4_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+
+        # Junction parameters
+        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 4:
+            self._fraction = fraction
+        else:
             logger.error(
-                "Wrong medium class in pump class definition: %s. Must be MediumPure.",
-                state0.super().__class__.__name__,
+                "Fractions of mass flow not defined correctly: %s.", str(fraction),
             )
             raise SystemExit
 
-        # Ports
-        self.__port_a = name + "_port_a"
-        self.__port_b = name + "_port_b"
-        self.__ports = {
-            self.__port_a: PortState(
-                name=self.__port_a, port_type=PortTypes.STATE_INLET, port_attr=state0,
-            ),
-            self.__port_b: PortState(
-                name=self.__port_b, port_type=PortTypes.STATE_OUTLET, port_attr=state0,
-            ),
-        }
-
-        # Junction parameters
-        # self.__P = np.float64(0.0)
-        self.__dp = dp
+        # New mass flow fractions
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+        self._ports[self._port_b3_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[2]
+        )
+        self._ports[self._port_b4_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[3]
+        )
 
         # Stop criterions
-        self.__last_hmass = state0.hmass
-        self.__last_p = state0.p
-        self.__last_m_flow = state0.m_flow
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_a_name]
+
+    @property
+    def port_b1(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_b1_name]
+
+    @property
+    def port_b2(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_b2_name]
+
+    @property
+    def port_b3(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_b3_name]
+
+    @property
+    def port_b4(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_b4_name]
+
+    @property
+    def stop_criterion_energy(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_a_name].state.hmass - self._last_hmass
+
+    @property
+    def stop_criterion_momentum(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_a_name].state.p - self._last_p
+
+    @property
+    def stop_criterion_mass(self: JunctionOneToFour) -> np.float64:
+        return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
+
+    def check(self: JunctionOneToFour) -> bool:
+        return True
+
+    def get_results(self: JunctionOneToFour) -> FittingsResult:
+        return FittingsResult()
+
+    def equation(self: JunctionOneToFour):
+        # New states
+        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b3_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b4_name].state = self._ports[self._port_a_name].state
+
+        # New mass flows
+        self._ports[self._port_b1_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[0]
+        )
+        self._ports[self._port_b2_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[1]
+        )
+        self._ports[self._port_b3_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[2]
+        )
+        self._ports[self._port_b4_name].state.m_flow = (
+            self._ports[self._port_a_name].state.m_flow * self._fraction[3]
+        )
+
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
+
+
+class JunctionTwoToOne(BaseModelClass):
+    """JunctionTwoToOne class.
+
+    The JunctionTwoToOne class implements a ...
+
+    """
+
+    def __init__(self: JunctionTwoToOne, name: str, state0: BaseStateClass):
+        """Initialize JunctionTwoToOne class.
+
+        Init function of the JunctionTwoToOne class.
+
+        """
+        super().__init__(name=name)
+
+        # Ports
+        self._port_a1_name = self.name + "_port_a1"
+        self._port_a2_name = self.name + "_port_a2"
+        self._port_b_name = self.name + "_port_b"
+        self.add_port(
+            PortState(
+                name=self._port_a1_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_a2_name,
+                port_type=PortTypes.STATE_INLET,
+                port_attr=state0,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                port_attr=state0,
+            )
+        )
+
+        # Stop criterions
+        self._last_hmass = state0.hmass
+        self._last_p = state0.p
+        self._last_m_flow = state0.m_flow
+
+    @property
+    def port_a1(self: JunctionTwoToOne) -> np.float64:
+        return self._ports[self._port_a1_name]
+
+    @property
+    def port_a2(self: JunctionTwoToOne) -> np.float64:
+        return self._ports[self._port_a2_name]
+
+    @property
+    def port_b(self: JunctionTwoToOne) -> np.float64:
+        return self._ports[self._port_b_name]
 
     @property
     def stop_criterion_energy(self: JunctionTwoToOne) -> np.float64:
-        return self.__ports[self.__port_b].state.hmass - self.__last_hmass
+        return self._ports[self._port_b_name].state.hmass - self._last_hmass
 
     @property
     def stop_criterion_momentum(self: JunctionTwoToOne) -> np.float64:
-        return self.__ports[self.__port_b].state.p - self.__last_p
+        return self._ports[self._port_b_name].state.p - self._last_p
 
     @property
     def stop_criterion_mass(self: JunctionTwoToOne) -> np.float64:
-        return self.__ports[self.__port_b].state.m_flow - self.__last_m_flow
+        return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
     def check(self: JunctionTwoToOne) -> bool:
         return True
@@ -178,17 +527,92 @@ class JunctionTwoToOne(BaseModelClass):
         return FittingsResult()
 
     def equation(self: JunctionTwoToOne):
-        self.__port_outlet.state = self.__port_inlet.state
-        self.__port_outlet.state.set_ps(
-            p=self.__port_inlet.state.p + self.__dp, s=self.__port_inlet.state.s
+        # New states
+        if isinstance(self._ports[self._port_a1_name].state, MediumBase) and isinstance(
+            self._ports[self._port_a2_name].state, MediumBase
+        ):
+            h_out = (
+                self._ports[self._port_a1_name1].state.m_flow
+                * self._ports[self._port_a1_name1].state.hmass
+                + self._ports[self._port_a2_name2].state.m_flow
+                * self._ports[self._port_a2_name2].state.hmass
+            ) / (
+                self._ports[self._port_a1_name1].state.m_flow
+                + self._ports[self._port_a2_name2].state.m_flow
+            )
+            self._ports[self._port_b_name].state.set_ph(
+                p=np.min(
+                    [
+                        self._ports[self._port_a1_name1].state.p,
+                        self._ports[self._port_a2_name2].state.p,
+                    ]
+                ),
+                h=h_out,
+            )
+        elif isinstance(
+            self._ports[self._port_a1_name].state, MediumHumidAir
+        ) and isinstance(self._ports[self._port_a2_name].state, MediumHumidAir):
+            w_out = (
+                (
+                    self._ports[self._port_a1_name1].state.m_flow
+                    + self._ports[self._port_a2_name2].state.m_flow
+                )
+                / (
+                    self._ports[self._port_a1_name1].state.m_flow
+                    / (1 + self._ports[self._port_a1_name1].state.w)
+                    + self._ports[self._port_a2_name2].state.m_flow
+                    / (1 + self._ports[self._port_a2_name2].state.w)
+                )
+                - 1
+            )
+            h_out = (
+                (
+                    self._ports[self._port_a1_name1].state.m_flow
+                    / (1 + self._ports[self._port_a1_name1].state.w)
+                )
+                * self._ports[self._port_a1_name1].state.hmass
+                + (
+                    self._ports[self._port_a2_name2].state.m_flow
+                    / (1 + self._ports[self._port_a2_name2].state.w)
+                )
+                * self._ports[self._port_a2_name2].state.hmass
+            ) / (
+                (
+                    self._ports[self._port_a1_name1].state.m_flow
+                    + self._ports[self._port_a2_name2].state.m_flow
+                )
+                / (1 + w_out)
+            )
+            self._ports[self._port_b_name].state.set_phw(
+                p=np.min(
+                    [
+                        self._ports[self._port_a1_name1].state.p,
+                        self._ports[self._port_a2_name2].state.p,
+                    ]
+                ),
+                h=h_out,
+                w=w_out,
+            )
+        else:
+            logger.error(
+                "Different medium classes in the inlet ports: %s <-> %s.",
+                self._ports[self._port_a1_name].state.super().__class__.__name__,
+                self._ports[self._port_a2_name].state.super().__class__.__name__,
+            )
+            raise SystemExit
+
+        # New mass flows
+        self._ports[self._port_b_name].state.m_flow = (
+            self._ports[self._port_a1_name1].state.m_flow
+            + self._ports[self._port_a2_name2].state.m_flow
         )
 
         # Stop criterions
-        self.__last_hmass = self.__ports[self.__port_b].state.hmass
-        self.__last_p = self.__ports[self.__port_b].state.p
-        self.__last_m_flow = self.__ports[self.__port_b].state.m_flow
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 if __name__ == "__main__":
     logger = get_logger(__name__)
-    logger.warning("Not implemented.")
+    logger.info("This is the file for the fittings model classes.")
