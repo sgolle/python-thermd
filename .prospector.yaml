@@ -37,6 +37,8 @@ pep8:
   run: true
   options:
     single-line-if-stmt: n
+  disable:
+    - N815
 
 pep257:
   run: true

@@ -17,17 +17,16 @@ import math
 import numpy as np
 from scipy import optimize as opt
 from thermd.core import (
-    BaseResultClass,
     BaseModelClass,
     # BasePortClass,
     BaseStateClass,
     # BaseSignalClass,
-    MediumHumidAir,
+    ModelResult,
     PortState,
     # PortSignal,
     PortTypes,
     MediumBase,
-    # MediumHumidAir,
+    MediumHumidAir,
 )
 from thermd.helper import get_logger
 
@@ -37,8 +36,8 @@ logger = get_logger(__name__)
 
 # Result classes
 @dataclass
-class HXResult(BaseResultClass):
-    ...
+class ResultHX(ModelResult):
+    kA: np.float64
 
 
 # Mixin classes
@@ -203,8 +202,12 @@ class HeatSinkSource(BaseModelClass):
     def check(self: HeatSinkSource) -> bool:
         return True
 
-    def get_results(self: HeatSinkSource) -> HXResult:
-        return HXResult()
+    def get_results(self: HeatSinkSource) -> ResultHX:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        return ResultHX(states=states, signals=None, kA=np.float64(-1.0),)
 
     def equation(self: HeatSinkSource):
         # New state
@@ -326,8 +329,12 @@ class HXSimple(BaseModelClass, HXMixin):
     def check(self: HXSimple) -> bool:
         return True
 
-    def get_results(self: HXSimple) -> HXResult:
-        return HXResult()
+    def get_results(self: HeatSinkSource) -> ResultHX:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        return ResultHX(states=states, signals=None, kA=np.float64(-1.0),)
 
     def equation(self: HXSimple):
         self._ports[self._port_b_name].state.set_ps(

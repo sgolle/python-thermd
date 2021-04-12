@@ -16,6 +16,7 @@ from typing import List, Dict, Type, Union  # , Union, Dict, Tuple, Type, TypeVa
 from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 # from CoolProp.CoolProp import AbstractState
 
@@ -45,7 +46,8 @@ class BaseResultClass(ABC):
 
 @dataclass
 class SystemResult(BaseResultClass):
-    states: List[BaseStateClass]
+    models: Union[List[ModelResult], None]
+    blocks: Union[List[BlockResult], None]
     success: bool
     status: np.int8
     message: str
@@ -53,10 +55,14 @@ class SystemResult(BaseResultClass):
 
     @classmethod
     def from_success(
-        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+        cls: Type[SystemResult],
+        models: Union[List[ModelResult], None],
+        blocks: Union[List[BlockResult], None],
+        nit: np.int16,
     ) -> SystemResult:
         return cls(
-            states=states,
+            models=models,
+            blocks=blocks,
             success=True,
             status=np.int8(0),
             message="Solver finished successfully.",
@@ -65,10 +71,14 @@ class SystemResult(BaseResultClass):
 
     @classmethod
     def from_error(
-        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+        cls: Type[SystemResult],
+        models: Union[List[ModelResult], None],
+        blocks: Union[List[BlockResult], None],
+        nit: np.int16,
     ) -> SystemResult:
         return cls(
-            states=states,
+            models=models,
+            blocks=blocks,
             success=False,
             status=np.int8(-1),
             message="Solver didn't finish successfully.",
@@ -77,15 +87,29 @@ class SystemResult(BaseResultClass):
 
     @classmethod
     def from_convergence(
-        cls: Type[SystemResult], states: List[BaseStateClass], nit: np.int16
+        cls: Type[SystemResult],
+        models: Union[List[ModelResult], None],
+        blocks: Union[List[BlockResult], None],
+        nit: np.int16,
     ) -> SystemResult:
         return cls(
-            states=states,
+            models=models,
+            blocks=blocks,
             success=False,
             status=np.int8(1),
             message="Solver didn't converge successfully.",
             nit=nit,
         )
+
+
+class ModelResult(BaseResultClass):
+    states: Union[Dict[str, BaseStateClass], None]
+    signals: Union[Dict[str, BaseSignalClass], None]
+
+
+@dataclass
+class BlockResult(BaseResultClass):
+    signals: Union[Dict[str, BaseSignalClass], None]
 
 
 # Base classes
@@ -127,6 +151,9 @@ class BaseSystemClass(ABC):
         self._models: List[str] = list()
         self._blocks: List[str] = list()
         self._ports: Dict[str, List[str]] = dict()
+
+        # Initialize result parameter
+        self.result: Union[SystemResult, None] = None
 
         # Initialize main graph
         self._network = nx.DiGraph()
@@ -265,6 +292,10 @@ class BaseSystemClass(ABC):
     def plot_graph(self: BaseSystemClass, path: Path):
         nx.draw(self._network, with_labels=True)
         plt.savefig(path)
+
+    def get_results(self: BaseSystemClass):
+        for model in self._models:
+            print("Test")
 
     def save_results(self: BaseSystemClass):
         ...

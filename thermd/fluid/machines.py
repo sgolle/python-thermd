@@ -18,12 +18,12 @@ import numpy as np
 
 # from scipy import optimize as opt
 from thermd.core import (
-    BasePortClass,
-    BaseResultClass,
+    # BasePortClass,
     BaseModelClass,
     # BasePortClass,
     BaseStateClass,
     # BaseSignalClass,
+    ModelResult,
     PortState,
     # PortSignal,
     PortTypes,
@@ -38,8 +38,18 @@ logger = get_logger(__name__)
 
 # Result classes
 @dataclass
-class MachineResult(BaseResultClass):
-    ...
+class ResultMachines(ModelResult):
+    power_electrical: np.float64
+    power_mechanical: np.float64
+    power_indicated_real: np.float64
+    power_indicated_ideal: np.float64
+    work_indicated_real: np.float64
+    work_indicated_ideal: np.float64
+    efficiency_electrical: np.float64
+    efficiency_mechanical: np.float64
+    efficiency_isentropic: np.float64
+    heat_loss: np.float64
+    n: np.float64
 
 
 # Machine classes
@@ -119,8 +129,31 @@ class PumpSimple(BaseModelClass):
     def check(self: PumpSimple) -> bool:
         return True
 
-    def get_results(self: PumpSimple) -> MachineResult:
-        return MachineResult()
+    def get_results(self: PumpSimple) -> ResultMachines:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        work = (
+            self._ports[self._port_b_name].state.hmass
+            - self._ports[self._port_a_name].state.hmass
+        )
+        power = self._ports[self._port_a_name].state.m_flow * work
+        return ResultMachines(
+            states=states,
+            signals=None,
+            power_electrical=power,
+            power_mechanical=power,
+            power_indicated_real=power,
+            power_indicated_ideal=power,
+            work_indicated_real=work,
+            work_indicated_ideal=work,
+            efficiency_electrical=np.float64(1.0),
+            efficiency_mechanical=np.float64(1.0),
+            efficiency_isentropic=np.float64(1.0),
+            heat_loss=np.float64(0.0),
+            n=np.float64(-1.0),
+        )
 
     def equation(self: PumpSimple):
         # New state
@@ -216,8 +249,31 @@ class CompressorSimple(BaseModelClass):
     def check(self: CompressorSimple) -> bool:
         return True
 
-    def get_results(self: CompressorSimple) -> MachineResult:
-        return MachineResult()
+    def get_results(self: PumpSimple) -> ResultMachines:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        work = (
+            self._ports[self._port_b_name].state.hmass
+            - self._ports[self._port_a_name].state.hmass
+        )
+        power = self._ports[self._port_a_name].state.m_flow * work
+        return ResultMachines(
+            states=states,
+            signals=None,
+            power_electrical=power,
+            power_mechanical=power,
+            power_indicated_real=power,
+            power_indicated_ideal=power,
+            work_indicated_real=work,
+            work_indicated_ideal=work,
+            efficiency_electrical=np.float64(1.0),
+            efficiency_mechanical=np.float64(1.0),
+            efficiency_isentropic=np.float64(1.0),
+            heat_loss=np.float64(0.0),
+            n=np.float64(-1.0),
+        )
 
     def equation(self: CompressorSimple):
         self._ports[self._port_b_name].state.set_ps(
@@ -307,8 +363,31 @@ class TurbineSimple(BaseModelClass):
     def check(self: TurbineSimple) -> bool:
         return True
 
-    def get_results(self: TurbineSimple) -> MachineResult:
-        return MachineResult()
+    def get_results(self: PumpSimple) -> ResultMachines:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        work = (
+            self._ports[self._port_b_name].state.hmass
+            - self._ports[self._port_a_name].state.hmass
+        )
+        power = self._ports[self._port_a_name].state.m_flow * work
+        return ResultMachines(
+            states=states,
+            signals=None,
+            power_electrical=power,
+            power_mechanical=power,
+            power_indicated_real=power,
+            power_indicated_ideal=power,
+            work_indicated_real=work,
+            work_indicated_ideal=work,
+            efficiency_electrical=np.float64(1.0),
+            efficiency_mechanical=np.float64(1.0),
+            efficiency_isentropic=np.float64(1.0),
+            heat_loss=np.float64(0.0),
+            n=np.float64(-1.0),
+        )
 
     def equation(self: TurbineSimple):
         self._ports[self._port_b_name].state.set_ps(

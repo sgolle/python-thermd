@@ -18,11 +18,11 @@ import numpy as np
 
 # from scipy import optimize as opt
 from thermd.core import (
-    BaseResultClass,
     BaseModelClass,
     # BasePortClass,
     BaseStateClass,
     # BaseSignalClass,
+    ModelResult,
     PortState,
     # PortSignal,
     PortTypes,
@@ -37,7 +37,7 @@ logger = get_logger(__name__)
 
 # Result classes
 @dataclass
-class FittingsResult(BaseResultClass):
+class ResultFittings(ModelResult):
     ...
 
 
@@ -137,8 +137,13 @@ class JunctionOneToTwo(BaseModelClass):
     def check(self: JunctionOneToTwo) -> bool:
         return True
 
-    def get_results(self: JunctionOneToTwo) -> FittingsResult:
-        return FittingsResult()
+    def get_results(self: JunctionOneToTwo) -> ResultFittings:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b1_name: self._ports[self._port_b1_name].state,
+            self._port_b2_name: self._ports[self._port_b2_name].state,
+        }
+        return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToTwo):
         # New states
@@ -269,8 +274,14 @@ class JunctionOneToThree(BaseModelClass):
     def check(self: JunctionOneToThree) -> bool:
         return True
 
-    def get_results(self: JunctionOneToThree) -> FittingsResult:
-        return FittingsResult()
+    def get_results(self: JunctionOneToThree) -> ResultFittings:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b1_name: self._ports[self._port_b1_name].state,
+            self._port_b2_name: self._ports[self._port_b2_name].state,
+            self._port_b3_name: self._ports[self._port_b3_name].state,
+        }
+        return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToThree):
         # New states
@@ -420,8 +431,15 @@ class JunctionOneToFour(BaseModelClass):
     def check(self: JunctionOneToFour) -> bool:
         return True
 
-    def get_results(self: JunctionOneToFour) -> FittingsResult:
-        return FittingsResult()
+    def get_results(self: JunctionOneToFour) -> ResultFittings:
+        states = {
+            self._port_a_name: self._ports[self._port_a_name].state,
+            self._port_b1_name: self._ports[self._port_b1_name].state,
+            self._port_b2_name: self._ports[self._port_b2_name].state,
+            self._port_b3_name: self._ports[self._port_b3_name].state,
+            self._port_b4_name: self._ports[self._port_b4_name].state,
+        }
+        return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToFour):
         # New states
@@ -523,8 +541,13 @@ class JunctionTwoToOne(BaseModelClass):
     def check(self: JunctionTwoToOne) -> bool:
         return True
 
-    def get_results(self: JunctionTwoToOne) -> FittingsResult:
-        return FittingsResult()
+    def get_results(self: JunctionTwoToOne) -> ResultFittings:
+        states = {
+            self._port_a1_name: self._ports[self._port_a1_name].state,
+            self._port_a2_name: self._ports[self._port_a2_name].state,
+            self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionTwoToOne):
         # New states

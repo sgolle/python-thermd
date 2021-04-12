@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 # Result classes
 @dataclass
-class MachineResult(BaseResultClass):
+class ResultMachines(BaseResultClass):
     ...
 
 
@@ -97,8 +97,8 @@ class HXSimple(BaseModelClass):
     def check(self: HXSimple) -> bool:
         return True
 
-    def get_results(self: HXSimple) -> MachineResult:
-        return MachineResult()
+    def get_results(self: HXSimple) -> ResultMachines:
+        return ResultMachines()
 
     def equation(self: HXSimple):
         self._port_outlet.state = self._port_inlet.state
