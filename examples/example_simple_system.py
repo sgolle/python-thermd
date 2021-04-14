@@ -6,6 +6,7 @@ Simple example for a system declaration and iterative solver.
 
 """
 import numpy as np
+from pathlib import Path
 
 from thermd.core import SystemSimpleIterative
 from thermd.helper import get_logger
@@ -21,6 +22,10 @@ if __name__ == "__main__":
     logger = get_logger(__name__)
     logger.info("Start simple example.")
 
+    # Define paths
+    output_folder_path = Path(__file__).parent.absolute() / "Output/"
+    output_folder_path.mkdir(parents=True, exist_ok=True)
+
     # Define starting states
     fluid = CoolPropFluid.new_incomp(fluid=CoolPropIncompPureFluids.WATER)
     state0 = MediumCoolProp.from_pT(
@@ -32,11 +37,11 @@ if __name__ == "__main__":
     )
 
     # Create models
-    pump1 = PumpSimple(name="pump1", state0=state0, dp=np.float64(1000))
-    pump2 = PumpSimple(name="pump2", state0=state0, dp=np.float64(1000))
+    pump1 = PumpSimple(name="pump1", state0=state0, dp=np.float64(2 * 10 ** 5))
+    pump2 = PumpSimple(name="pump2", state0=state0, dp=np.float64(2 * 10 ** 5))
 
     # Create system
-    system = SystemSimpleIterative()
+    system = SystemSimpleIterative(max_iteration_counter=100)
 
     # Add models and/or blocks to system
     system.add_model(pump1)
@@ -46,8 +51,12 @@ if __name__ == "__main__":
     system.connect(pump1.port_b, pump2.port_a)
 
     # Solve system
-    system.solve()
+    result = system.solve()
+    logger.info(
+        "Solver finished with status %s (%s)", str(result.status), result.message
+    )
 
     # Save results
+    system.save_results(output_folder_path / "results.ods")
 
     logger.info("Simple example finished successfully.")

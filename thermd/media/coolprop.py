@@ -523,6 +523,8 @@ class MediumCoolProp(MediumBase):
     def __init__(
         self: MediumCoolProp,
         state: AbstractState,
+        fluid: CoolPropFluid,
+        backend: CoolPropBackends = CoolPropBackends.HEOS,
         m_flow: np.float64 = np.float64(0.0),
     ) -> None:
         """Initialize MediumCoolProp class.
@@ -532,7 +534,23 @@ class MediumCoolProp(MediumBase):
         """
         # Class parameters
         self._state = state
+        self._fluid = fluid
+        self._backend = backend
         self._m_flow = m_flow
+
+    def copy(self: MediumCoolProp) -> MediumCoolProp:
+        """Copy the MediumCoolProp class object.
+
+        Magic method to copy the class object.
+
+        """
+        return MediumCoolProp.from_ph(
+            p=np.float64(self._state.p()),
+            h=np.float64(self._state.hmass()),
+            fluid=self._fluid,
+            backend=self._backend,
+            m_flow=self._m_flow,
+        )
 
     @classmethod
     def from_pT(
@@ -554,7 +572,7 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.PT_INPUTS, p, T)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @classmethod
     def from_px(
@@ -576,7 +594,7 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.PQ_INPUTS, p, x)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @classmethod
     def from_Tx(
@@ -598,7 +616,7 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.QT_INPUTS, x, T)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @classmethod
     def from_ph(
@@ -620,7 +638,7 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.HmassP_INPUTS, h, p)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @classmethod
     def from_Th(
@@ -642,7 +660,7 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(CoolProp.HmassT_INPUTS, h, T)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @classmethod
     def from_generic(
@@ -665,7 +683,15 @@ class MediumCoolProp(MediumBase):
 
         state = AbstractState(backend.value, fluid.fluid_name)
         state.update(input_type.value, prop1, prop2)
-        return cls(state=state, m_flow=m_flow)
+        return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
+
+    @property
+    def fluid(self: MediumCoolProp) -> CoolPropFluid:
+        return self._fluid
+
+    @property
+    def backend(self: MediumCoolProp) -> CoolPropBackends:
+        return self._backend
 
     @property
     def cpmass(self: MediumCoolProp) -> np.float64:
@@ -999,6 +1025,16 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             PropsSI("S", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "Water")
         )
         self._s_water_ice_0 = np.float64(0.0)
+
+    def copy(self: MediumCoolPropHumidAir) -> MediumCoolPropHumidAir:
+        """Copy the MediumCoolPropHumidAir class object.
+
+        Magic method to copy the class object.
+
+        """
+        return MediumCoolPropHumidAir(
+            p=self._p, T=self._T, w=self._w, m_flow=self._m_flow
+        )
 
     @property
     def cpmass(self: MediumCoolPropHumidAir) -> np.float64:

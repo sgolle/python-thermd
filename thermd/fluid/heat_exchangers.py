@@ -159,14 +159,14 @@ class HeatSinkSource(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -210,6 +210,11 @@ class HeatSinkSource(BaseModelClass):
         return ResultHX(states=states, signals=None, kA=np.float64(-1.0),)
 
     def equation(self: HeatSinkSource):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
         # New state
         if isinstance(self._ports[self._port_a_name].state, MediumBase):
             h_out = (
@@ -245,11 +250,6 @@ class HeatSinkSource(BaseModelClass):
         self._ports[self._port_b_name].state.m_flow = self._ports[
             self._port_a_name
         ].state.m_flow
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_p = self._ports[self._port_b_name].state.p
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 # Heat exchanger classes
@@ -287,14 +287,14 @@ class HXSimple(BaseModelClass, HXMixin):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -337,15 +337,15 @@ class HXSimple(BaseModelClass, HXMixin):
         return ResultHX(states=states, signals=None, kA=np.float64(-1.0),)
 
     def equation(self: HXSimple):
-        self._ports[self._port_b_name].state.set_ps(
-            p=self._ports[self._port_a_name].state.p + self._dp,
-            s=self._ports[self._port_a_name].state.s,
-        )
-
         # Stop criterions
         self._last_hmass = self._ports[self._port_b_name].state.hmass
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.s,
+        )
 
 
 if __name__ == "__main__":

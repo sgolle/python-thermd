@@ -87,14 +87,14 @@ class PumpSimple(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -156,6 +156,11 @@ class PumpSimple(BaseModelClass):
         )
 
     def equation(self: PumpSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
         # New state
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,
@@ -166,11 +171,6 @@ class PumpSimple(BaseModelClass):
         self._ports[self._port_b_name].state.m_flow = self._ports[
             self._port_a_name
         ].state.m_flow
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_p = self._ports[self._port_b_name].state.p
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 class CompressorSimple(BaseModelClass):
@@ -207,14 +207,14 @@ class CompressorSimple(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -276,15 +276,21 @@ class CompressorSimple(BaseModelClass):
         )
 
     def equation(self: CompressorSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # New state
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,
             s=self._ports[self._port_a_name].state.smass,
         )
 
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_p = self._ports[self._port_b_name].state.p
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
 
 
 class TurbineSimple(BaseModelClass):
@@ -321,14 +327,14 @@ class TurbineSimple(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -390,15 +396,21 @@ class TurbineSimple(BaseModelClass):
         )
 
     def equation(self: TurbineSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # New state
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,
             s=self._ports[self._port_a_name].state.smass,
         )
 
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_p = self._ports[self._port_b_name].state.p
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
 
 
 if __name__ == "__main__":

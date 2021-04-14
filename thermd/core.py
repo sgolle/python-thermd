@@ -11,12 +11,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import List, Dict, Type, Union  # , Union, Dict, Tuple, Type, TypeVar
+from typing import List, Dict, Type, Union, Optional, Tuple
 
 from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
-import pandas as pd
+import pyexcel as pe
 
 # from CoolProp.CoolProp import AbstractState
 
@@ -46,8 +46,8 @@ class BaseResultClass(ABC):
 
 @dataclass
 class SystemResult(BaseResultClass):
-    models: Union[List[ModelResult], None]
-    blocks: Union[List[BlockResult], None]
+    models: Optional[Dict[str, ModelResult]]
+    blocks: Optional[Dict[str, BlockResult]]
     success: bool
     status: np.int8
     message: str
@@ -56,8 +56,8 @@ class SystemResult(BaseResultClass):
     @classmethod
     def from_success(
         cls: Type[SystemResult],
-        models: Union[List[ModelResult], None],
-        blocks: Union[List[BlockResult], None],
+        models: Optional[Dict[str, ModelResult]],
+        blocks: Optional[Dict[str, BlockResult]],
         nit: np.int16,
     ) -> SystemResult:
         return cls(
@@ -72,15 +72,15 @@ class SystemResult(BaseResultClass):
     @classmethod
     def from_error(
         cls: Type[SystemResult],
-        models: Union[List[ModelResult], None],
-        blocks: Union[List[BlockResult], None],
+        models: Optional[Dict[str, ModelResult]],
+        blocks: Optional[Dict[str, BlockResult]],
         nit: np.int16,
     ) -> SystemResult:
         return cls(
             models=models,
             blocks=blocks,
             success=False,
-            status=np.int8(-1),
+            status=np.int8(2),
             message="Solver didn't finish successfully.",
             nit=nit,
         )
@@ -88,8 +88,8 @@ class SystemResult(BaseResultClass):
     @classmethod
     def from_convergence(
         cls: Type[SystemResult],
-        models: Union[List[ModelResult], None],
-        blocks: Union[List[BlockResult], None],
+        models: Optional[Dict[str, ModelResult]],
+        blocks: Optional[Dict[str, BlockResult]],
         nit: np.int16,
     ) -> SystemResult:
         return cls(
@@ -102,14 +102,15 @@ class SystemResult(BaseResultClass):
         )
 
 
+@dataclass
 class ModelResult(BaseResultClass):
-    states: Union[Dict[str, BaseStateClass], None]
-    signals: Union[Dict[str, BaseSignalClass], None]
+    states: Optional[Dict[str, BaseStateClass]]
+    signals: Optional[Dict[str, BaseSignalClass]]
 
 
 @dataclass
 class BlockResult(BaseResultClass):
-    signals: Union[Dict[str, BaseSignalClass], None]
+    signals: Optional[Dict[str, BaseSignalClass]]
 
 
 # Base classes
@@ -153,7 +154,7 @@ class BaseSystemClass(ABC):
         self._ports: Dict[str, List[str]] = dict()
 
         # Initialize result parameter
-        self.result: Union[SystemResult, None] = None
+        self._result: Optional[SystemResult] = None
 
         # Initialize main graph
         self._network = nx.DiGraph()
@@ -165,9 +166,13 @@ class BaseSystemClass(ABC):
     # def to_file(self: BaseSystemClass, filename: str):
     #     return
 
-    # @property
-    # def network(self):
-    #     return self._network
+    @property
+    def network(self):
+        return self._network
+
+    @property
+    def result(self) -> Optional[SystemResult]:
+        return self._result
 
     def clear(self: BaseSystemClass):
         self._network.clear()
@@ -293,12 +298,89 @@ class BaseSystemClass(ABC):
         nx.draw(self._network, with_labels=True)
         plt.savefig(path)
 
-    def get_results(self: BaseSystemClass):
-        for model in self._models:
-            print("Test")
+    def get_node_results(
+        self: BaseSystemClass,
+    ) -> Tuple[Optional[Dict[str, ModelResult]], Optional[Dict[str, BlockResult]]]:
+        models: Optional[Dict[str, ModelResult]] = dict()
+        blocks: Optional[Dict[str, BlockResult]] = dict()
 
-    def save_results(self: BaseSystemClass):
-        ...
+        if models is not None:
+            for model_name in self._models:
+                models[model_name] = self._network.nodes[model_name][
+                    "node_class"
+                ].get_results()
+            if len(models) == 0:
+                models = None
+
+        if blocks is not None:
+            for block_name in self._blocks:
+                blocks[block_name] = self._network.nodes[block_name][
+                    "node_class"
+                ].get_results()
+            if len(blocks) == 0:
+                blocks = None
+
+        return models, blocks
+
+    def save_results(self: BaseSystemClass, path: Path):
+        if self._result is None:
+            logger.error(
+                "No SystemResult in system class! Maybe system not solved yet."
+            )
+            model_results, block_results = self.get_node_results()
+        else:
+            model_results = self._result.models
+            block_results = self._result.blocks
+
+        states_results = list()
+        states_results.append(
+            [
+                "Node name",
+                "Node type",
+                "Port name",
+                "Temperature in K",
+                "Pressure in Pa",
+                "Spec. enthalpy in J/kg",
+                "Spec. entropy in J/(kg*K)",
+            ]
+        )
+        signals_results = list()
+        signals_results.append(
+            ["Node name", "Node type", "Port name", "Signal value",]
+        )
+        if model_results is not None:
+            for model_name, model_result in model_results.items():
+                if model_result.states is not None:
+                    for port_name, state in model_result.states.items():
+                        states_results.append(
+                            [
+                                model_name,
+                                "Model",
+                                port_name,
+                                str(state.T),
+                                str(state.p),
+                                str(state.hmass),
+                                str(state.smass),
+                            ]
+                        )
+                if model_result.signals is not None:
+                    for port_name, signal in model_result.signals.items():
+                        signals_results.append(
+                            [model_name, "Model", port_name, signal.value]
+                        )
+
+        if block_results is not None:
+            for block_name, block_result in block_results.items():
+                if block_result.signals is not None:
+                    for port_name, signal in block_result.signals.items():
+                        signals_results.append(
+                            [block_name, "Block", port_name, str(signal.value)]
+                        )
+
+        book = pe.get_book(
+            bookdict={"states": states_results, "signals": signals_results}
+        )
+        book.save_as(filename=path.as_posix())
 
     @abstractmethod
     def stop_criterion(self: BaseSystemClass) -> bool:
@@ -371,7 +453,7 @@ class BaseModelClass(ABC):
                 isinstance(self._ports[port_name], PortSignal)
                 and isinstance(port_attr, BaseSignalClass)
             ):
-                self._ports[port_name].port_attr = port_attr
+                self._ports[port_name].port_attr = port_attr.copy()
             else:
                 logger.error(
                     "Port attribute and class doesn't match: %s -> %s.",
@@ -498,7 +580,7 @@ class BasePortClass(ABC):
         # Class properties
         self._name = name
         self._port_type = port_type
-        self._port_a_namettr = port_attr
+        self._port_attr = port_attr
 
     @property
     def name(self: BasePortClass) -> str:
@@ -510,13 +592,13 @@ class BasePortClass(ABC):
 
     @property
     def port_attr(self: BasePortClass) -> Union[BaseStateClass, BaseSignalClass]:
-        return self._port_a_namettr
+        return self._port_attr
 
     @port_attr.setter
     def port_attr(
         self: BasePortClass, port_attr: Union[BaseStateClass, BaseSignalClass]
     ) -> None:
-        self._port_a_namettr = port_attr
+        self._port_attr = port_attr
 
 
 class BaseStateClass(ABC):
@@ -526,6 +608,15 @@ class BaseStateClass(ABC):
     state classes. States are one type of connectors between models or blocks.
 
     """
+
+    @abstractmethod
+    def copy(self: BaseStateClass) -> BaseStateClass:
+        """Copy the BaseStateClass object.
+
+        Method to copy the class object.
+
+        """
+        ...
 
     @property
     @abstractmethod
@@ -756,7 +847,30 @@ class BaseSignalClass(ABC):
 
     """
 
-    ...
+    def __init__(self, value: np.float64) -> None:
+        """Initialize BaseSignalClass.
+
+        Init function of the BaseSignalClass.
+
+        """
+        # Signal parameters
+        self._value = value
+
+    def copy(self: BaseSignalClass) -> BaseSignalClass:
+        """Copy the BaseSignalClass object.
+
+        Method to copy the class object.
+
+        """
+        return BaseSignalClass(self._value)
+
+    @property
+    def value(self) -> np.float64:
+        return self._value
+
+    @value.setter
+    def value(self, value: np.float64) -> None:
+        self._value = value
 
 
 # System classes
@@ -825,45 +939,74 @@ class SystemSimpleIterative(BaseSystemClass):
         self.check()
         self._simulation_nodes = self._models + self._blocks
 
-    def solve(self: SystemSimpleIterative):
+    def solve(self: SystemSimpleIterative) -> SystemResult:
         logger.info("Start solver.")
         logger.info("Pre-solve.")
         self.pre_solve()
 
         logger.info("Solve.")
-        while self.stop_criterion():
-            logger.info(
-                "Iteration count: %s of %s",
-                str(self._iteration_counter),
-                str(self._max_iteration_counter),
-            )
-            for node_name in self._simulation_nodes:
-                logger.info("Calculate node %s", node_name)
 
-                self._network.nodes[node_name]["node_class"].equation()
+        try:
+            while self.stop_criterion():
+                logger.info(
+                    "Iteration count: %s of %s",
+                    str(self._iteration_counter),
+                    str(self._max_iteration_counter),
+                )
+                for node_name in self._simulation_nodes:
+                    logger.debug("Calculate node %s", node_name)
 
-                for outlet_port_name in self._network.successors(node_name):
-                    for connected_port_name in self._network.successors(
-                        outlet_port_name
-                    ):
-                        for successor_node_name in self._network.successors(
-                            connected_port_name
+                    self._network.nodes[node_name]["node_class"].equation()
+
+                    for outlet_port_name in self._network.successors(node_name):
+                        for connected_port_name in self._network.successors(
+                            outlet_port_name
                         ):
-                            logger.info(
-                                "Set port %s of node %s with port %s of node %s",
-                                connected_port_name,
-                                successor_node_name,
-                                outlet_port_name,
-                                node_name,
-                            )
-                            self._network.nodes[successor_node_name][
-                                "node_class"
-                            ].set_port_attr(
-                                connected_port_name,
-                                self._network.nodes[node_name]["node_class"]
-                                .ports[outlet_port_name]
-                                .port_attr,
-                            )
+                            for successor_node_name in self._network.successors(
+                                connected_port_name
+                            ):
+                                logger.debug(
+                                    "Set port %s of node %s with port %s of node %s",
+                                    connected_port_name,
+                                    successor_node_name,
+                                    outlet_port_name,
+                                    node_name,
+                                )
+                                self._network.nodes[successor_node_name][
+                                    "node_class"
+                                ].set_port_attr(
+                                    connected_port_name,
+                                    self._network.nodes[node_name]["node_class"]
+                                    .ports[outlet_port_name]
+                                    .port_attr,
+                                )
+        except BaseException as e:
+            logger.error("Solver failed.")
+            logger.exception("Error code: %s", str(e))
+
+            models, blocks = self.get_node_results()
+            self._result = SystemResult.from_error(
+                models=models, blocks=blocks, nit=self._iteration_counter
+            )
+            return self._result
+
+        # Post solve
+        logger.info("Post-solve.")
+
+        models, blocks = self.get_node_results()
+
+        if self._iteration_counter > self._max_iteration_counter:
+            logger.info("Solver did not converge.")
+            self._result = SystemResult.from_convergence(
+                models=models, blocks=blocks, nit=self._iteration_counter
+            )
+            return self._result
+
+        logger.info("Solver finished successfully.")
+        self._result = SystemResult.from_success(
+            models=models, blocks=blocks, nit=self._iteration_counter
+        )
+        return self._result
 
 
 # Port classes
@@ -877,18 +1020,18 @@ class PortState(BasePortClass):
 
     @property
     def state(self: PortState) -> BaseStateClass:
-        if not isinstance(self._port_a_namettr, BaseStateClass):
+        if not isinstance(self._port_attr, BaseStateClass):
             logger.error(
                 "Port has wrong attribute type: PortState -> %s",
-                self._port_a_namettr.__class__.__name__,
+                self._port_attr.__class__.__name__,
             )
             raise SystemExit
 
-        return self._port_a_namettr
+        return self._port_attr
 
     @state.setter
     def state(self: PortState, state: BaseStateClass) -> None:
-        self._port_a_namettr = state
+        self._port_attr = state
 
 
 class PortSignal(BasePortClass):
@@ -901,18 +1044,18 @@ class PortSignal(BasePortClass):
 
     @property
     def signal(self: PortSignal) -> BaseSignalClass:
-        if not isinstance(self._port_a_namettr, BaseSignalClass):
+        if not isinstance(self._port_attr, BaseSignalClass):
             logger.error(
                 "Port has wrong attribute type: PortSignal -> %s",
-                self._port_a_namettr.__class__.__name__,
+                self._port_attr.__class__.__name__,
             )
             raise SystemExit
 
-        return self._port_a_namettr
+        return self._port_attr
 
     @signal.setter
     def signal(self: PortSignal, signal: BaseSignalClass) -> None:
-        self._port_a_namettr = signal
+        self._port_attr = signal
 
 
 # State/ media classes

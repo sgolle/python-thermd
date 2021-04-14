@@ -70,21 +70,21 @@ class JunctionOneToTwo(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b1_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b2_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -146,6 +146,11 @@ class JunctionOneToTwo(BaseModelClass):
         return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToTwo):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
+
         # New states
         self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
         self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
@@ -157,11 +162,6 @@ class JunctionOneToTwo(BaseModelClass):
         self._ports[self._port_b2_name].state.m_flow = (
             self._ports[self._port_a_name].state.m_flow * self._fraction[1]
         )
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_a_name].state.hmass
-        self._last_p = self._ports[self._port_a_name].state.p
-        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
 
 class JunctionOneToThree(BaseModelClass):
@@ -193,28 +193,28 @@ class JunctionOneToThree(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b1_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b2_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b3_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -284,6 +284,11 @@ class JunctionOneToThree(BaseModelClass):
         return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToThree):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
+
         # New states
         self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
         self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
@@ -299,11 +304,6 @@ class JunctionOneToThree(BaseModelClass):
         self._ports[self._port_b3_name].state.m_flow = (
             self._ports[self._port_a_name].state.m_flow * self._fraction[2]
         )
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_a_name].state.hmass
-        self._last_p = self._ports[self._port_a_name].state.p
-        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
 
 class JunctionOneToFour(BaseModelClass):
@@ -336,35 +336,35 @@ class JunctionOneToFour(BaseModelClass):
             PortState(
                 name=self._port_a_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b1_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b2_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b3_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b4_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -442,6 +442,11 @@ class JunctionOneToFour(BaseModelClass):
         return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionOneToFour):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_p = self._ports[self._port_a_name].state.p
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
+
         # New states
         self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
         self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
@@ -461,11 +466,6 @@ class JunctionOneToFour(BaseModelClass):
         self._ports[self._port_b4_name].state.m_flow = (
             self._ports[self._port_a_name].state.m_flow * self._fraction[3]
         )
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_a_name].state.hmass
-        self._last_p = self._ports[self._port_a_name].state.p
-        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
 
 class JunctionTwoToOne(BaseModelClass):
@@ -491,21 +491,21 @@ class JunctionTwoToOne(BaseModelClass):
             PortState(
                 name=self._port_a1_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_a2_name,
                 port_type=PortTypes.STATE_INLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
         self.add_port(
             PortState(
                 name=self._port_b_name,
                 port_type=PortTypes.STATE_OUTLET,
-                port_attr=state0,
+                port_attr=state0.copy(),
             )
         )
 
@@ -550,6 +550,11 @@ class JunctionTwoToOne(BaseModelClass):
         return ResultFittings(states=states, signals=None)
 
     def equation(self: JunctionTwoToOne):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_p = self._ports[self._port_b_name].state.p
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
         # New states
         if isinstance(self._ports[self._port_a1_name].state, MediumBase) and isinstance(
             self._ports[self._port_a2_name].state, MediumBase
@@ -629,11 +634,6 @@ class JunctionTwoToOne(BaseModelClass):
             self._ports[self._port_a1_name1].state.m_flow
             + self._ports[self._port_a2_name2].state.m_flow
         )
-
-        # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_p = self._ports[self._port_b_name].state.p
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
 
 if __name__ == "__main__":
