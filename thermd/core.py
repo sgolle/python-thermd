@@ -295,8 +295,15 @@ class BaseSystemClass(ABC):
                 logger.error("Block %s shows an error.", block)
 
     def plot_graph(self: BaseSystemClass, path: Path):
-        nx.draw(self._network, with_labels=True)
+        nx.draw(
+            self._network,
+            # pos=nx.spring_layout(self._network, scale=5),
+            with_labels=True,
+        )
         plt.savefig(path)
+
+    def save_graph(self: BaseSystemClass, path: Path):
+        nx.write_graphml(self._network, path.as_posix())
 
     def get_node_results(
         self: BaseSystemClass,
@@ -342,6 +349,7 @@ class BaseSystemClass(ABC):
                 "Pressure in Pa",
                 "Spec. enthalpy in J/kg",
                 "Spec. entropy in J/(kg*K)",
+                "Mass flow in kg/s",
             ]
         )
         signals_results = list()
@@ -361,6 +369,7 @@ class BaseSystemClass(ABC):
                                 str(state.p),
                                 str(state.hmass),
                                 str(state.smass),
+                                str(state.m_flow),
                             ]
                         )
                 if model_result.signals is not None:

@@ -89,8 +89,9 @@ class JunctionOneToTwo(BaseModelClass):
         )
 
         # Junction parameters
-        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 2:
+        if fraction.ndim == 1 and fraction.shape[0] == 2:
             self._fraction = fraction
+            self._fraction = self._fraction / self._fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -219,8 +220,9 @@ class JunctionOneToThree(BaseModelClass):
         )
 
         # Junction parameters
-        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 3:
+        if fraction.ndim == 1 and fraction.shape[0] == 3:
             self._fraction = fraction
+            self._fraction = self._fraction / self._fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -369,8 +371,9 @@ class JunctionOneToFour(BaseModelClass):
         )
 
         # Junction parameters
-        if fraction.sum() == 1.0 and fraction.ndim == 1 and fraction.shape[0] == 4:
+        if fraction.ndim == 1 and fraction.shape[0] == 4:
             self._fraction = fraction
+            self._fraction = self._fraction / self._fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -560,19 +563,19 @@ class JunctionTwoToOne(BaseModelClass):
             self._ports[self._port_a2_name].state, MediumBase
         ):
             h_out = (
-                self._ports[self._port_a1_name1].state.m_flow
-                * self._ports[self._port_a1_name1].state.hmass
-                + self._ports[self._port_a2_name2].state.m_flow
-                * self._ports[self._port_a2_name2].state.hmass
+                self._ports[self._port_a1_name].state.m_flow
+                * self._ports[self._port_a1_name].state.hmass
+                + self._ports[self._port_a2_name].state.m_flow
+                * self._ports[self._port_a2_name].state.hmass
             ) / (
-                self._ports[self._port_a1_name1].state.m_flow
-                + self._ports[self._port_a2_name2].state.m_flow
+                self._ports[self._port_a1_name].state.m_flow
+                + self._ports[self._port_a2_name].state.m_flow
             )
             self._ports[self._port_b_name].state.set_ph(
                 p=np.min(
                     [
-                        self._ports[self._port_a1_name1].state.p,
-                        self._ports[self._port_a2_name2].state.p,
+                        self._ports[self._port_a1_name].state.p,
+                        self._ports[self._port_a2_name].state.p,
                     ]
                 ),
                 h=h_out,
@@ -582,40 +585,40 @@ class JunctionTwoToOne(BaseModelClass):
         ) and isinstance(self._ports[self._port_a2_name].state, MediumHumidAir):
             w_out = (
                 (
-                    self._ports[self._port_a1_name1].state.m_flow
-                    + self._ports[self._port_a2_name2].state.m_flow
+                    self._ports[self._port_a1_name].state.m_flow
+                    + self._ports[self._port_a2_name].state.m_flow
                 )
                 / (
-                    self._ports[self._port_a1_name1].state.m_flow
-                    / (1 + self._ports[self._port_a1_name1].state.w)
-                    + self._ports[self._port_a2_name2].state.m_flow
-                    / (1 + self._ports[self._port_a2_name2].state.w)
+                    self._ports[self._port_a1_name].state.m_flow
+                    / (1 + self._ports[self._port_a1_name].state.w)
+                    + self._ports[self._port_a2_name].state.m_flow
+                    / (1 + self._ports[self._port_a2_name].state.w)
                 )
                 - 1
             )
             h_out = (
                 (
-                    self._ports[self._port_a1_name1].state.m_flow
-                    / (1 + self._ports[self._port_a1_name1].state.w)
+                    self._ports[self._port_a1_name].state.m_flow
+                    / (1 + self._ports[self._port_a1_name].state.w)
                 )
-                * self._ports[self._port_a1_name1].state.hmass
+                * self._ports[self._port_a1_name].state.hmass
                 + (
-                    self._ports[self._port_a2_name2].state.m_flow
-                    / (1 + self._ports[self._port_a2_name2].state.w)
+                    self._ports[self._port_a2_name].state.m_flow
+                    / (1 + self._ports[self._port_a2_name].state.w)
                 )
-                * self._ports[self._port_a2_name2].state.hmass
+                * self._ports[self._port_a2_name].state.hmass
             ) / (
                 (
-                    self._ports[self._port_a1_name1].state.m_flow
-                    + self._ports[self._port_a2_name2].state.m_flow
+                    self._ports[self._port_a1_name].state.m_flow
+                    + self._ports[self._port_a2_name].state.m_flow
                 )
                 / (1 + w_out)
             )
             self._ports[self._port_b_name].state.set_phw(
                 p=np.min(
                     [
-                        self._ports[self._port_a1_name1].state.p,
-                        self._ports[self._port_a2_name2].state.p,
+                        self._ports[self._port_a1_name].state.p,
+                        self._ports[self._port_a2_name].state.p,
                     ]
                 ),
                 h=h_out,
@@ -631,8 +634,8 @@ class JunctionTwoToOne(BaseModelClass):
 
         # New mass flows
         self._ports[self._port_b_name].state.m_flow = (
-            self._ports[self._port_a1_name1].state.m_flow
-            + self._ports[self._port_a2_name2].state.m_flow
+            self._ports[self._port_a1_name].state.m_flow
+            + self._ports[self._port_a2_name].state.m_flow
         )
 
 
