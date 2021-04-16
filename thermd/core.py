@@ -13,7 +13,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import List, Dict, Type, Union, Optional, Tuple
 
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
 import pyexcel as pe
@@ -294,16 +294,16 @@ class BaseSystemClass(ABC):
             if not self._network.nodes[block]["node_class"].check():
                 logger.error("Block %s shows an error.", block)
 
-    def plot_graph(self: BaseSystemClass, path: Path):
-        nx.draw(
-            self._network,
-            # pos=nx.spring_layout(self._network, scale=5),
-            with_labels=True,
-        )
-        plt.savefig(path)
+    # def plot_graph(self: BaseSystemClass, path: Path):
+    #     nx.draw(
+    #         self._network,
+    #         # pos=nx.spring_layout(self._network, scale=5),
+    #         with_labels=True,
+    #     )
+    #     plt.savefig(path)
 
-    def save_graph(self: BaseSystemClass, path: Path):
-        nx.write_graphml(self._network, path.as_posix())
+    # def save_graph(self: BaseSystemClass, path: Path):
+    #     nx.write_graphml(self._network, path.as_posix())
 
     def get_node_results(
         self: BaseSystemClass,
@@ -449,6 +449,15 @@ class BaseModelClass(ABC):
     def add_port(self: BaseModelClass, port: BasePortClass) -> None:
         self._ports[port.name] = port
 
+    def get_port_attr(
+        self: BaseModelClass, port_name: str,
+    ) -> Union[BaseStateClass, BaseSignalClass]:
+        if port_name in self._ports:
+            return self._ports[port_name].port_attr
+        else:
+            logger.error("Unknown port name: %s.", port_name)
+            raise SystemExit
+
     def set_port_attr(
         self: BaseModelClass,
         port_name: str,
@@ -531,6 +540,13 @@ class BaseBlockClass(ABC):
 
     def add_port(self: BaseBlockClass, port: BasePortClass) -> None:
         self._ports[port.name] = port
+
+    def get_port_attr(self: BaseBlockClass, port_name: str,) -> BaseSignalClass:
+        if port_name in self._ports:
+            return self._ports[port_name].port_attr
+        else:
+            logger.error("Unknown port name: %s.", port_name)
+            raise SystemExit
 
     def set_port_attr(
         self: BaseBlockClass, port_name: str, port_attr: BaseSignalClass,
@@ -968,6 +984,21 @@ class SystemSimpleIterative(BaseSystemClass):
                     self._network.nodes[node_name]["node_class"].equation()
 
                     for outlet_port_name in self._network.successors(node_name):
+
+                        if isinstance(
+                            self._network.nodes[node_name]["node_class"].get_port_attr(
+                                outlet_port_name
+                            ),
+                            BaseStateClass,
+                        ):
+                            if (
+                                self._network.nodes[node_name]["node_class"]
+                                .get_port_attr(outlet_port_name)
+                                .m_flow
+                                <= 0.0
+                            ):
+                                continue
+
                         for connected_port_name in self._network.successors(
                             outlet_port_name
                         ):
@@ -989,6 +1020,7 @@ class SystemSimpleIterative(BaseSystemClass):
                                     .ports[outlet_port_name]
                                     .port_attr,
                                 )
+
         except BaseException as e:
             logger.error("Solver failed.")
             logger.exception("Error code: %s", str(e))

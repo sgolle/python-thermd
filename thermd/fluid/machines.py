@@ -161,6 +161,11 @@ class PumpSimple(BaseModelClass):
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
         # New state
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,
@@ -281,6 +286,11 @@ class CompressorSimple(BaseModelClass):
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
         # New state
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,
@@ -400,6 +410,11 @@ class TurbineSimple(BaseModelClass):
         self._last_hmass = self._ports[self._port_b_name].state.hmass
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
 
         # New state
         self._ports[self._port_b_name].state.set_ps(

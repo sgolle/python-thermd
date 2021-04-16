@@ -202,18 +202,23 @@ class HeatSinkSource(BaseModelClass):
     def check(self: HeatSinkSource) -> bool:
         return True
 
-    def get_results(self: HeatSinkSource) -> ResultHX:
+    def get_results(self: HeatSinkSource) -> ModelResult:
         states = {
             self._port_a_name: self._ports[self._port_a_name].state,
             self._port_b_name: self._ports[self._port_b_name].state,
         }
-        return ResultHX(states=states, signals=None, kA=np.float64(-1.0),)
+        return ModelResult(states=states, signals=None)
 
     def equation(self: HeatSinkSource):
         # Stop criterions
         self._last_hmass = self._ports[self._port_b_name].state.hmass
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
 
         # New state
         if isinstance(self._ports[self._port_a_name].state, MediumBase):
@@ -341,6 +346,14 @@ class HXSimple(BaseModelClass, HXMixin):
         self._last_hmass = self._ports[self._port_b_name].state.hmass
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if (
+            self._ports[self._port_a1_name].state.m_flow <= 0.0
+            and self._ports[self._port_a2_name].state.m_flow <= 0.0
+        ):
+            logger.debug("No mass flows in model %s.", self._name)
+            return
 
         self._ports[self._port_b_name].state.set_ps(
             p=self._ports[self._port_a_name].state.p + self._dp,

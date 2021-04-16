@@ -90,8 +90,7 @@ class JunctionOneToTwo(BaseModelClass):
 
         # Junction parameters
         if fraction.ndim == 1 and fraction.shape[0] == 2:
-            self._fraction = fraction
-            self._fraction = self._fraction / self._fraction.sum()  # Normalize
+            self._fraction = fraction / fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -152,9 +151,18 @@ class JunctionOneToTwo(BaseModelClass):
         self._last_p = self._ports[self._port_a_name].state.p
         self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
         # New states
-        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b1_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b2_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
 
         # New mass flows
         self._ports[self._port_b1_name].state.m_flow = (
@@ -221,8 +229,7 @@ class JunctionOneToThree(BaseModelClass):
 
         # Junction parameters
         if fraction.ndim == 1 and fraction.shape[0] == 3:
-            self._fraction = fraction
-            self._fraction = self._fraction / self._fraction.sum()  # Normalize
+            self._fraction = fraction / fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -291,10 +298,21 @@ class JunctionOneToThree(BaseModelClass):
         self._last_p = self._ports[self._port_a_name].state.p
         self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
         # New states
-        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b3_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b1_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b2_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b3_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
 
         # New mass flows
         self._ports[self._port_b1_name].state.m_flow = (
@@ -372,8 +390,7 @@ class JunctionOneToFour(BaseModelClass):
 
         # Junction parameters
         if fraction.ndim == 1 and fraction.shape[0] == 4:
-            self._fraction = fraction
-            self._fraction = self._fraction / self._fraction.sum()  # Normalize
+            self._fraction = fraction / fraction.sum()  # Normalize
         else:
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
@@ -450,11 +467,24 @@ class JunctionOneToFour(BaseModelClass):
         self._last_p = self._ports[self._port_a_name].state.p
         self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
         # New states
-        self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b2_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b3_name].state = self._ports[self._port_a_name].state
-        self._ports[self._port_b4_name].state = self._ports[self._port_a_name].state
+        self._ports[self._port_b1_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b2_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b3_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
+        self._ports[self._port_b4_name].state = self._ports[
+            self._port_a_name
+        ].state.copy()
 
         # New mass flows
         self._ports[self._port_b1_name].state.m_flow = (
@@ -557,6 +587,14 @@ class JunctionTwoToOne(BaseModelClass):
         self._last_hmass = self._ports[self._port_b_name].state.hmass
         self._last_p = self._ports[self._port_b_name].state.p
         self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if (
+            self._ports[self._port_a1_name].state.m_flow <= 0.0
+            and self._ports[self._port_a2_name].state.m_flow <= 0.0
+        ):
+            logger.debug("No mass flows in model %s.", self._name)
+            return
 
         # New states
         if isinstance(self._ports[self._port_a1_name].state, MediumBase) and isinstance(
