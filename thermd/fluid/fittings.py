@@ -134,7 +134,7 @@ class JunctionOneToTwo(BaseModelClass):
     def stop_criterion_mass(self: JunctionOneToTwo) -> np.float64:
         return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
 
-    def check(self: JunctionOneToTwo) -> bool:
+    def check_self(self: JunctionOneToTwo) -> bool:
         return True
 
     def get_results(self: JunctionOneToTwo) -> ResultFittings:
@@ -280,7 +280,7 @@ class JunctionOneToThree(BaseModelClass):
     def stop_criterion_mass(self: JunctionOneToThree) -> np.float64:
         return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
 
-    def check(self: JunctionOneToThree) -> bool:
+    def check_self(self: JunctionOneToThree) -> bool:
         return True
 
     def get_results(self: JunctionOneToThree) -> ResultFittings:
@@ -448,7 +448,7 @@ class JunctionOneToFour(BaseModelClass):
     def stop_criterion_mass(self: JunctionOneToFour) -> np.float64:
         return self._ports[self._port_a_name].state.m_flow - self._last_m_flow
 
-    def check(self: JunctionOneToFour) -> bool:
+    def check_self(self: JunctionOneToFour) -> bool:
         return True
 
     def get_results(self: JunctionOneToFour) -> ResultFittings:
@@ -571,7 +571,7 @@ class JunctionTwoToOne(BaseModelClass):
     def stop_criterion_mass(self: JunctionTwoToOne) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: JunctionTwoToOne) -> bool:
+    def check_self(self: JunctionTwoToOne) -> bool:
         return True
 
     def get_results(self: JunctionTwoToOne) -> ResultFittings:

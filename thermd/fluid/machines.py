@@ -126,7 +126,7 @@ class PumpSimple(BaseModelClass):
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: PumpSimple) -> bool:
+    def check_self(self: PumpSimple) -> bool:
         return True
 
     def get_results(self: PumpSimple) -> ResultMachines:
@@ -251,7 +251,7 @@ class CompressorSimple(BaseModelClass):
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: CompressorSimple) -> bool:
+    def check_self(self: CompressorSimple) -> bool:
         return True
 
     def get_results(self: PumpSimple) -> ResultMachines:
@@ -376,7 +376,11 @@ class TurbineSimple(BaseModelClass):
     def stop_criterion_mass(self: PumpSimple) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: TurbineSimple) -> bool:
+    @property
+    def stop_criterion_signal(self: PumpSimple) -> np.float64:
+        return np.float64(0.0)
+
+    def check_self(self: TurbineSimple) -> bool:
         return True
 
     def get_results(self: PumpSimple) -> ResultMachines:

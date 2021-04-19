@@ -199,7 +199,7 @@ class HeatSinkSource(BaseModelClass):
     def stop_criterion_mass(self: HeatSinkSource) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: HeatSinkSource) -> bool:
+    def check_self(self: HeatSinkSource) -> bool:
         return True
 
     def get_results(self: HeatSinkSource) -> ModelResult:
@@ -331,7 +331,7 @@ class HXSimple(BaseModelClass, HXMixin):
     def stop_criterion_mass(self: HXSimple) -> np.float64:
         return self._ports[self._port_b_name].state.m_flow - self._last_m_flow
 
-    def check(self: HXSimple) -> bool:
+    def check_self(self: HXSimple) -> bool:
         return True
 
     def get_results(self: HeatSinkSource) -> ResultHX:

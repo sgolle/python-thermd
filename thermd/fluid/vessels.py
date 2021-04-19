@@ -114,7 +114,7 @@ class HXSimple(BaseModelClass):
     def stop_criterion_mass(self: HXSimple) -> np.float64:
         return self._port_outlet.state.m_flow - self._last_m_flow
 
-    def check(self: HXSimple) -> bool:
+    def check_self(self: HXSimple) -> bool:
         return True
 
     def set_port_state(self: HXSimple, port_name: str, state: BaseStateClass,) -> None:

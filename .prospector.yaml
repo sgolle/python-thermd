@@ -55,6 +55,7 @@ pylint:
     - fixme
     - bad-continuation
     - too-many-arguments
+    - no-else-return
 
   options:
     max-locals: 15

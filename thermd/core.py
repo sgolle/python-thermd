@@ -35,8 +35,10 @@ class NodeTypes(Enum):
 class PortTypes(Enum):
     STATE_INLET = auto()
     STATE_OUTLET = auto()
+    STATE_INLET_OUTLET = auto()
     SIGNAL_INLET = auto()
     SIGNAL_OUTLET = auto()
+    SIGNAL_INLET_OUTLET = auto()
 
 
 # Result classes
@@ -134,6 +136,7 @@ class BaseSystemClass(ABC):
         self._stop_criterion_energy = np.float64(1)
         self._stop_criterion_momentum = np.float64(1)
         self._stop_criterion_mass = np.float64(0.001)
+        self._stop_criterion_signal = np.float64(0.001)
         self._iteration_counter = np.uint16(0)
         self._max_iteration_counter = np.uint16(1000)
 
@@ -145,6 +148,8 @@ class BaseSystemClass(ABC):
             )
         if "stop_criterion_mass" in kwargs:
             self._stop_criterion_mass = np.float64(kwargs["stop_criterion_mass"])
+        if "stop_criterion_signal" in kwargs:
+            self._stop_criterion_signal = np.float64(kwargs["stop_criterion_signal"])
         if "max_iteration_counter" in kwargs:
             self._max_iteration_counter = np.uint16(kwargs["max_iteration_counter"])
 
@@ -260,11 +265,21 @@ class BaseSystemClass(ABC):
     ):
         if port1.__class__.__name__ == port2.__class__.__name__:
             if (
-                port1.port_type == PortTypes.STATE_OUTLET
-                or port1.port_type == PortTypes.SIGNAL_OUTLET
+                port1.port_type
+                in [
+                    PortTypes.STATE_OUTLET,
+                    PortTypes.STATE_INLET_OUTLET,
+                    PortTypes.SIGNAL_OUTLET,
+                    PortTypes.SIGNAL_INLET_OUTLET,
+                ]
             ) and (
-                port2.port_type == PortTypes.STATE_INLET
-                or port2.port_type == PortTypes.SIGNAL_INLET
+                port2.port_type
+                in [
+                    PortTypes.STATE_INLET,
+                    PortTypes.STATE_INLET_OUTLET,
+                    PortTypes.SIGNAL_INLET,
+                    PortTypes.SIGNAL_INLET_OUTLET,
+                ]
             ):
 
                 self._network.add_edge(port1.name, port2.name)
@@ -283,15 +298,15 @@ class BaseSystemClass(ABC):
             logger.error("Port types not compatible: %s <-> %s", port1.name, port2.name)
             raise SystemExit
 
-    def check(self: BaseSystemClass):
+    def check_self(self: BaseSystemClass):
         # Check all models
         for model in self._models:
-            if not self._network.nodes[model]["node_class"].check():
+            if not self._network.nodes[model]["node_class"].check_self():
                 logger.error("Model %s shows an error.", model)
 
         # Check all blocks
         for block in self._blocks:
-            if not self._network.nodes[block]["node_class"].check():
+            if not self._network.nodes[block]["node_class"].check_self():
                 logger.error("Block %s shows an error.", block)
 
     # def plot_graph(self: BaseSystemClass, path: Path):
@@ -416,7 +431,7 @@ class BaseModelClass(ABC):
         """
         # Class properties
         self._name = name
-        self._ports: Dict[str, BasePortClass] = dict()
+        self._ports: Dict[str, Union[PortState, PortSignal]] = dict()
 
         # Balances
         self._energy_balance = np.float64(0.0)
@@ -428,7 +443,7 @@ class BaseModelClass(ABC):
         return self._name
 
     @property
-    def ports(self: BaseModelClass) -> Dict[str, BasePortClass]:
+    def ports(self: BaseModelClass) -> Dict[str, Union[PortState, PortSignal]]:
         return self._ports
 
     @property
@@ -446,50 +461,72 @@ class BaseModelClass(ABC):
     def stop_criterion_mass(self: BaseModelClass) -> np.float64:
         ...
 
-    def add_port(self: BaseModelClass, port: BasePortClass) -> None:
+    @property
+    @abstractmethod
+    def stop_criterion_signal(self: BaseModelClass) -> np.float64:
+        ...
+
+    def add_port(self: BaseModelClass, port: Union[PortState, PortSignal]) -> None:
         self._ports[port.name] = port
 
-    def get_port_attr(
-        self: BaseModelClass, port_name: str,
-    ) -> Union[BaseStateClass, BaseSignalClass]:
-        if port_name in self._ports:
-            return self._ports[port_name].port_attr
-        else:
-            logger.error("Unknown port name: %s.", port_name)
-            raise SystemExit
+    # def get_port_attr(
+    #     self: BaseModelClass, port_name: str,
+    # ) -> Union[BaseStateClass, BaseSignalClass]:
+    #     if port_name not in self._ports:
+    #         logger.error("Unknown port name: %s.", port_name)
+    #         raise SystemExit
 
-    def set_port_attr(
-        self: BaseModelClass,
-        port_name: str,
-        port_attr: Union[BaseStateClass, BaseSignalClass],
-    ) -> None:
-        if port_name in self._ports:
-            if (
-                isinstance(self._ports[port_name], PortState)
-                and isinstance(port_attr, BaseStateClass)
-            ) or (
-                isinstance(self._ports[port_name], PortSignal)
-                and isinstance(port_attr, BaseSignalClass)
-            ):
-                self._ports[port_name].port_attr = port_attr.copy()
-            else:
-                logger.error(
-                    "Port attribute and class doesn't match: %s -> %s.",
-                    self._ports[port_name].__class__.__name__,
-                    port_attr.__class__.__name__,
-                )
-                raise SystemExit
+    #     if isinstance(self._ports[port_name], PortState):
+    #         return self._ports[port_name].state
+    #     elif isinstance(self._ports[port_name], PortSignal):
+    #         return self._ports[port_name].signal
+    #     else:
+    #         logger.error(
+    #             "Unknown port class: %s.", self._ports[port_name].__class__.__name__
+    #         )
+    #         raise SystemExit
 
-        else:
-            logger.error("Unknown port name: %s.", port_name)
-            raise SystemExit
+    # def set_port_attr(
+    #     self: BaseModelClass,
+    #     port_name: str,
+    #     port_attr: Union[BaseStateClass, BaseSignalClass],
+    # ) -> None:
+    #     if port_name in self._ports:
+    #         if isinstance(self._ports[port_name], PortState) and isinstance(
+    #             port_attr, BaseStateClass
+    #         ):
+    #             self._ports[port_name].state = port_attr
+    #         elif isinstance(self._ports[port_name], PortSignal) and isinstance(
+    #             port_attr, BaseSignalClass
+    #         ):
+    #             self._ports[port_name].signal = port_attr
+    #         else:
+    #             logger.error(
+    #                 "Port attribute and class doesn't match: %s -> %s.",
+    #                 self._ports[port_name].__class__.__name__,
+    #                 port_attr.__class__.__name__,
+    #             )
+    #             raise SystemExit
+
+    #     else:
+    #         logger.error("Unknown port name: %s.", port_name)
+    #         raise SystemExit
+
+    def check_state(self: BaseModelClass) -> bool:
+        if not (
+            self._energy_balance == 0.0
+            and self._momentum_balance == 0.0
+            and self._mass_balance == 0.0
+        ):
+            return False
+        return True
 
     @abstractmethod
-    def check(self: BaseModelClass) -> bool:
+    def check_self(self: BaseModelClass) -> BaseResultClass:
         ...
 
     @abstractmethod
-    def get_results(self: BaseModelClass) -> BaseResultClass:
+    def get_results(self: BaseModelClass) -> ModelResult:
         ...
 
     @abstractmethod
@@ -513,70 +550,60 @@ class BaseBlockClass(ABC):
         """
         # Class properties
         self._name = name
-        self._ports: Dict[str, BasePortClass] = dict()
+        self._ports: Dict[str, PortSignal] = dict()
 
     @property
     def name(self: BaseBlockClass) -> str:
         return self._name
 
     @property
-    def ports(self: BaseBlockClass) -> Dict[str, BasePortClass]:
+    def ports(self: BaseBlockClass) -> Dict[str, PortSignal]:
         return self._ports
 
     @property
     @abstractmethod
-    def stop_criterion_energy(self: BaseBlockClass) -> np.float64:
+    def stop_criterion_signal(self: BaseBlockClass) -> np.float64:
         ...
 
-    @property
-    @abstractmethod
-    def stop_criterion_momentum(self: BaseBlockClass) -> np.float64:
-        ...
-
-    @property
-    @abstractmethod
-    def stop_criterion_mass(self: BaseBlockClass) -> np.float64:
-        ...
-
-    def add_port(self: BaseBlockClass, port: BasePortClass) -> None:
+    def add_port(self: BaseBlockClass, port: PortSignal) -> None:
         self._ports[port.name] = port
 
-    def get_port_attr(self: BaseBlockClass, port_name: str,) -> BaseSignalClass:
-        if port_name in self._ports:
-            return self._ports[port_name].port_attr
-        else:
-            logger.error("Unknown port name: %s.", port_name)
-            raise SystemExit
+    # def get_port_attr(self: BaseBlockClass, port_name: str) -> BaseSignalClass:
+    #     if port_name not in self._ports:
+    #         logger.error("Unknown port name: %s.", port_name)
+    #         raise SystemExit
 
-    def set_port_attr(
-        self: BaseBlockClass, port_name: str, port_attr: BaseSignalClass,
-    ) -> None:
-        if port_name in self._ports:
-            if isinstance(self._ports[port_name], PortSignal) and isinstance(
-                port_attr, BaseSignalClass
-            ):
-                self._ports[port_name].port_attr = port_attr
-            else:
-                logger.error(
-                    (
-                        "Port class must be PortSignal and port attribute must be "
-                        "BaseSignalClass: %s -> %s."
-                    ),
-                    self._ports[port_name].__class__.__name__,
-                    port_attr.__class__.__name__,
-                )
-                raise SystemExit
+    #     return self._ports[port_name].signal
 
-        else:
-            logger.error("Unknown port name: %s.", port_name)
-            raise SystemExit
+    # def set_port_attr(
+    #     self: BaseBlockClass, port_name: str, port_attr: BaseSignalClass,
+    # ) -> None:
+    #     if port_name in self._ports:
+    #         if isinstance(self._ports[port_name], PortSignal) and isinstance(
+    #             port_attr, BaseSignalClass
+    #         ):
+    #             self._ports[port_name].port_attr = port_attr
+    #         else:
+    #             logger.error(
+    #                 (
+    #                     "Port class must be PortSignal and port attribute must be "
+    #                     "BaseSignalClass: %s -> %s."
+    #                 ),
+    #                 self._ports[port_name].__class__.__name__,
+    #                 port_attr.__class__.__name__,
+    #             )
+    #             raise SystemExit
+
+    #     else:
+    #         logger.error("Unknown port name: %s.", port_name)
+    #         raise SystemExit
 
     @abstractmethod
-    def check(self: BaseBlockClass) -> bool:
+    def check_self(self: BaseBlockClass) -> bool:
         ...
 
     @abstractmethod
-    def get_results(self: BaseBlockClass) -> BaseResultClass:
+    def get_results(self: BaseBlockClass) -> BlockResult:
         ...
 
     @abstractmethod
@@ -592,10 +619,7 @@ class BasePortClass(ABC):
     """
 
     def __init__(
-        self: BasePortClass,
-        name: str,
-        port_type: PortTypes,
-        port_attr: Union[BaseStateClass, BaseSignalClass],
+        self: BasePortClass, name: str, port_type: PortTypes,
     ):
         """Initialize base port class.
 
@@ -605,7 +629,6 @@ class BasePortClass(ABC):
         # Class properties
         self._name = name
         self._port_type = port_type
-        self._port_attr = port_attr
 
     @property
     def name(self: BasePortClass) -> str:
@@ -614,16 +637,6 @@ class BasePortClass(ABC):
     @property
     def port_type(self: BasePortClass) -> PortTypes:
         return self._port_type
-
-    @property
-    def port_attr(self: BasePortClass) -> Union[BaseStateClass, BaseSignalClass]:
-        return self._port_attr
-
-    @port_attr.setter
-    def port_attr(
-        self: BasePortClass, port_attr: Union[BaseStateClass, BaseSignalClass]
-    ) -> None:
-        self._port_attr = port_attr
 
 
 class BaseStateClass(ABC):
@@ -938,30 +951,62 @@ class SystemSimpleIterative(BaseSystemClass):
 
         # Stop criterions of models and blocks
         for node_name in self._simulation_nodes:
-            if (
-                np.abs(
-                    self._network.nodes[node_name]["node_class"].stop_criterion_energy
+            if self.network.nodes[node_name]["node_type"] == NodeTypes.MODEL:
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_energy
+                    )
+                    > self._stop_criterion_energy
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_momentum
+                    )
+                    > self._stop_criterion_momentum
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name]["node_class"].stop_criterion_mass
+                    )
+                    > self._stop_criterion_mass
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_signal
+                    )
+                    > self._stop_criterion_signal
+                ):
+                    return True
+            elif self.network.nodes[node_name]["node_type"] == NodeTypes.BLOCK:
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_signal
+                    )
+                    > self._stop_criterion_signal
+                ):
+                    return True
+            else:
+                logger.error(
+                    "Node type in simulation nodes not defined: %s.",
+                    self.network.nodes[node_name]["node_type"].value,
                 )
-                > self._stop_criterion_energy
-            ):
-                return True
-            if (
-                np.abs(
-                    self._network.nodes[node_name]["node_class"].stop_criterion_momentum
-                )
-                > self._stop_criterion_momentum
-            ):
-                return True
-            if (
-                np.abs(self._network.nodes[node_name]["node_class"].stop_criterion_mass)
-                > self._stop_criterion_mass
-            ):
-                return True
+                raise SystemExit
 
         return False
 
     def pre_solve(self: SystemSimpleIterative):
-        self.check()
+        self.check_self()
         self._simulation_nodes = self._models + self._blocks
 
     def solve(self: SystemSimpleIterative) -> SystemResult:
@@ -986,15 +1031,15 @@ class SystemSimpleIterative(BaseSystemClass):
                     for outlet_port_name in self._network.successors(node_name):
 
                         if isinstance(
-                            self._network.nodes[node_name]["node_class"].get_port_attr(
+                            self._network.nodes[node_name]["node_class"].ports[
                                 outlet_port_name
-                            ),
-                            BaseStateClass,
+                            ],
+                            PortState,
                         ):
                             if (
                                 self._network.nodes[node_name]["node_class"]
-                                .get_port_attr(outlet_port_name)
-                                .m_flow
+                                .ports[outlet_port_name]
+                                .state.m_flow
                                 <= 0.0
                             ):
                                 continue
@@ -1012,14 +1057,59 @@ class SystemSimpleIterative(BaseSystemClass):
                                     outlet_port_name,
                                     node_name,
                                 )
-                                self._network.nodes[successor_node_name][
-                                    "node_class"
-                                ].set_port_attr(
-                                    connected_port_name,
+
+                                if (
                                     self._network.nodes[node_name]["node_class"]
                                     .ports[outlet_port_name]
-                                    .port_attr,
-                                )
+                                    .port_type
+                                    in [
+                                        PortTypes.STATE_OUTLET,
+                                        PortTypes.STATE_INLET_OUTLET,
+                                    ]
+                                ) and (
+                                    self._network.nodes[successor_node_name][
+                                        "node_class"
+                                    ]
+                                    .ports[connected_port_name]
+                                    .port_type
+                                    in [
+                                        PortTypes.STATE_INLET,
+                                        PortTypes.STATE_INLET_OUTLET,
+                                    ]
+                                ):
+                                    self._network.nodes[successor_node_name][
+                                        "node_class"
+                                    ].ports[connected_port_name].state = (
+                                        self._network.nodes[node_name]["node_class"]
+                                        .ports[outlet_port_name]
+                                        .state
+                                    )
+                                elif (
+                                    self._network.nodes[node_name]["node_class"]
+                                    .ports[outlet_port_name]
+                                    .port_type
+                                    in [
+                                        PortTypes.SIGNAL_OUTLET,
+                                        PortTypes.SIGNAL_INLET_OUTLET,
+                                    ]
+                                ) and (
+                                    self._network.nodes[successor_node_name][
+                                        "node_class"
+                                    ]
+                                    .ports[connected_port_name]
+                                    .port_type
+                                    in [
+                                        PortTypes.SIGNAL_INLET,
+                                        PortTypes.SIGNAL_INLET_OUTLET,
+                                    ]
+                                ):
+                                    self._network.nodes[successor_node_name][
+                                        "node_class"
+                                    ].ports[connected_port_name].signal = (
+                                        self._network.nodes[node_name]["node_class"]
+                                        .ports[outlet_port_name]
+                                        .signal
+                                    )
 
         except BaseException as e:
             logger.error("Solver failed.")
@@ -1059,20 +1149,26 @@ class PortState(BasePortClass):
 
     """
 
+    def __init__(
+        self: PortState, name: str, port_type: PortTypes, state: BaseStateClass
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_type=port_type)
+
+        # Class properties
+        self._state = state.copy()
+
     @property
     def state(self: PortState) -> BaseStateClass:
-        if not isinstance(self._port_attr, BaseStateClass):
-            logger.error(
-                "Port has wrong attribute type: PortState -> %s",
-                self._port_attr.__class__.__name__,
-            )
-            raise SystemExit
-
-        return self._port_attr
+        return self._state
 
     @state.setter
     def state(self: PortState, state: BaseStateClass) -> None:
-        self._port_attr = state
+        self._state = state.copy()
 
 
 class PortSignal(BasePortClass):
@@ -1083,20 +1179,26 @@ class PortSignal(BasePortClass):
 
     """
 
+    def __init__(
+        self: PortSignal, name: str, port_type: PortTypes, signal: BaseSignalClass
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_type=port_type)
+
+        # Class properties
+        self._signal = signal.copy()
+
     @property
     def signal(self: PortSignal) -> BaseSignalClass:
-        if not isinstance(self._port_attr, BaseSignalClass):
-            logger.error(
-                "Port has wrong attribute type: PortSignal -> %s",
-                self._port_attr.__class__.__name__,
-            )
-            raise SystemExit
-
-        return self._port_attr
+        return self._signal
 
     @signal.setter
     def signal(self: PortSignal, signal: BaseSignalClass) -> None:
-        self._port_attr = signal
+        self._signal = signal.copy()
 
 
 # State/ media classes
