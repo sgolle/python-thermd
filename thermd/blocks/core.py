@@ -7,6 +7,7 @@ Beschreibung
 """
 
 from __future__ import annotations
+from typing import Any
 
 import numpy as np
 from thermd.core import (
@@ -53,7 +54,7 @@ class BaseBlockOneInlet(BaseBlockClass):
         self._last_value = signal0.value
 
     @property
-    def port_a(self: BaseBlockOneInlet) -> np.float64:
+    def port_a(self: BaseBlockOneInlet) -> PortSignal:
         return self._ports[self._port_a_name]
 
     @property
@@ -92,11 +93,11 @@ class BaseBlockOneOutlet(BaseBlockClass):
         self._last_value = signal0.value
 
     @property
-    def port_b(self: BaseBlockOneOutlet) -> np.float64:
+    def port_b(self: BaseBlockOneOutlet) -> PortSignal:
         return self._ports[self._port_b_name]
 
     @property
-    def stop_criterion_signal(self: BaseBlockOneOutlet) -> np.float64:
+    def stop_criterion_signal(self: BaseBlockOneOutlet) -> Any:
         return self._ports[self._port_b_name].signal.value - self._last_value
 
 
@@ -139,13 +140,18 @@ class BaseBlockOneInletOneOutlet(BaseBlockClass):
         self._last_value = signal0.value
 
     @property
-    def port_a(self: BaseBlockOneInletOneOutlet) -> np.float64:
+    def port_a(self: BaseBlockOneInletOneOutlet) -> PortSignal:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b(self: BaseBlockOneInletOneOutlet) -> np.float64:
+    def port_b(self: BaseBlockOneInletOneOutlet) -> PortSignal:
         return self._ports[self._port_b_name]
 
     @property
-    def stop_criterion_signal(self: BaseBlockOneInletOneOutlet) -> np.float64:
+    def stop_criterion_signal(self: BaseBlockOneInletOneOutlet) -> Any:
         return self._ports[self._port_b_name].signal.value - self._last_value
+
+
+if __name__ == "__main__":
+    logger = get_logger(__name__)
+    logger.info("This is the file for the core block classes.")

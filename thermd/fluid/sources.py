@@ -7,27 +7,14 @@ Beschreibung
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import List, Dict, Union
 
-from CoolProp.CoolProp import PropsSI
-from CoolProp.HumidAirProp import HAPropsSI
-import math
 import numpy as np
-from numpy.lib.ufunclike import isneginf
-from scipy import optimize as opt
 from thermd.core import (
-    BaseResultClass,
-    BaseModelClass,
-    BasePortClass,
     BaseStateClass,
-    BaseSignalClass,
-    PortState,
-    PortSignal,
-    PortFunctionTypes,
     MediumBase,
-    # MediumHumidAir,
+    MediumHumidAir,
 )
+from thermd.fluid.core import BaseFluidOneInletOneOutlet
 from thermd.helper import get_logger
 
 # Initialize global logger
@@ -35,27 +22,66 @@ logger = get_logger(__name__)
 
 
 # Result classes
-@dataclass
-class ResultMachines(BaseResultClass):
-    ...
+# @dataclass
+# class ResultMachines(ModelResult):
+#     power_electrical: np.float64
+#     power_mechanical: np.float64
+#     power_indicated_real: np.float64
+#     power_indicated_ideal: np.float64
+#     work_indicated_real: np.float64
+#     work_indicated_ideal: np.float64
+#     efficiency_electrical: np.float64
+#     efficiency_mechanical: np.float64
+#     efficiency_isentropic: np.float64
+#     heat_loss: np.float64
+#     n: np.float64
 
-
-# Mixin classes
+# Example ResultMachines:
+# def get_results(self: PumpSimple) -> ResultMachines:
+#     states = {
+#         self._port_a_name: self._ports[self._port_a_name].state,
+#         self._port_b_name: self._ports[self._port_b_name].state,
+#     }
+#     work = (
+#         self._ports[self._port_b_name].state.hmass
+#         - self._ports[self._port_a_name].state.hmass
+#     )
+#     power = self._ports[self._port_a_name].state.m_flow * work
+#     return ResultMachines(
+#         states=states,
+#         signals=None,
+#         power_electrical=power,
+#         power_mechanical=power,
+#         power_indicated_real=power,
+#         power_indicated_ideal=power,
+#         work_indicated_real=work,
+#         work_indicated_ideal=work,
+#         efficiency_electrical=np.float64(1.0),
+#         efficiency_mechanical=np.float64(1.0),
+#         efficiency_isentropic=np.float64(1.0),
+#         heat_loss=np.float64(0.0),
+#         n=np.float64(-1.0),
+#     )
 
 # Machine classes
-class HXSimple(BaseModelClass):
-    """HXSimple class.
+class PumpSimple(BaseFluidOneInletOneOutlet):
+    """PumpSimple class.
 
-    The HXSimple class implements a pump which delivers the mass flow from the inlet
+    The PumpSimple class implements a pump which delivers the mass flow from the inlet
     with a constant pressure difference dp and ideal, isentropic behavior.
     No height or velocity difference between inlet and outlet.
 
     """
 
     def __init__(
-        self: HXSimple, name: str, state0: BaseStateClass, dp: np.float64,
+        self: PumpSimple, name: str, state0: BaseStateClass, dp: np.float64,
     ):
-        super().__init__(name=name)
+        """Initialize PumpSimple class.
+
+        Init function of the PumpSimple class.
+
+        """
+        super().__init__(name=name, state0=state0)
 
         # Checks
         if not isinstance(state0, MediumBase):
@@ -65,112 +91,168 @@ class HXSimple(BaseModelClass):
             )
             raise SystemExit
 
-        # Ports
-        self._port_inlet = PortState(
-            name=name + "_port_a", port_function=PortFunctionTypes.INLET, state=state0,
-        )
-        self._port_outlet = PortState(
-            name=name + "_port_b", port_function=PortFunctionTypes.OUTLET, state=state0,
-        )
-
         # Pump parameters
-        # self._P = np.float64(0.0)
         self._dp = dp
 
-        # Stop criterions
-        self._last_hmass = state0.hmass
-        self._last_p = state0.p
-        self._last_m_flow = state0.m_flow
-
-    @property
-    def ports(self: HXSimple) -> List[BasePortClass]:
-        return [self._port_inlet, self._port_outlet]
-
-    # @property
-    # def port_inlet(self: PumpSimple) -> BasePortClass:
-    #     return self._port_inlet
-
-    # @port_inlet.setter
-    # def port_inlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self._port_inlet = port
-
-    # @property
-    # def port_outlet(self: PumpSimple) -> BasePortClass:
-    #     return self._port_outlet
-
-    # @port_outlet.setter
-    # def port_outlet(self: PumpSimple, port: BasePortClass) -> None:
-    #     self._port_outlet = port
-
-    @property
-    def stop_criterion_energy(self: HXSimple) -> np.float64:
-        return self._port_outlet.state.hmass - self._last_hmass
-
-    @property
-    def stop_criterion_momentum(self: HXSimple) -> np.float64:
-        return self._port_outlet.state.p - self._last_p
-
-    @property
-    def stop_criterion_mass(self: HXSimple) -> np.float64:
-        return self._port_outlet.state.m_flow - self._last_m_flow
-
-    def check_self(self: HXSimple) -> bool:
+    def check_self(self: PumpSimple) -> bool:
         return True
 
-    def set_port_state(self: HXSimple, port_name: str, state: BaseStateClass,) -> None:
-        if port_name == self._port_inlet.name:
-            self._port_inlet.state = state
+    def equation(self: PumpSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
 
-        elif port_name == self._port_outlet.name:
-            self._port_outlet.state = state
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
 
-        else:
-            logger.error("Cannot set port state: Unknown port name.")
-            raise SystemExit
-
-    def set_port_signal(
-        self: HXSimple, port_name: str, signal: BaseSignalClass,
-    ) -> None:
-        if port_name == self._port_inlet.name:
-            self._port_inlet.signal = signal
-        elif port_name == self._port_outlet.name:
-            self._port_outlet.signal = signal
-        else:
-            logger.error("Cannot set port signal: Unknown port name.")
-            raise SystemExit
-
-    def get_port_state(self: HXSimple, port_name: str,) -> BaseStateClass:
-        if port_name == self._port_inlet.name:
-            state = self._port_inlet.state
-        elif port_name == self._port_outlet.name:
-            state = self._port_outlet.state
-        else:
-            logger.error("Cannot get port state: Unknown port name.")
-            raise SystemExit
-
-        return state
-
-    def get_port_signal(self: HXSimple, port_name: str,) -> BaseSignalClass:
-        if port_name == self._port_inlet.name:
-            signal = self._port_inlet.signal
-        elif port_name == self._port_outlet.name:
-            signal = self._port_outlet.signal
-        else:
-            logger.error("Cannot get port signal: Unknown port name.")
-            raise SystemExit
-
-        return signal
-
-    def get_results(self: HXSimple) -> ResultMachines:
-        return ResultMachines()
-
-    def equation(self: HXSimple):
-        self._port_outlet.state = self._port_inlet.state
-        self._port_outlet.state.set_ps(
-            p=self._port_inlet.state.p + self._dp, s=self._port_inlet.state.s
+        # New state
+        self._ports[self._port_b_name].state.set_ps(
+            p=self._ports[self._port_a_name].state.p + self._dp,
+            s=self._ports[self._port_a_name].state.smass,
         )
+
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
+
+
+class CompressorSimple(BaseFluidOneInletOneOutlet):
+    """CompressorSimple class.
+
+    The CompressorSimple class implements a pump which delivers the mass flow from the
+    inlet with a constant pressure difference dp and ideal, isentropic behavior.
+    No height or velocity difference between inlet and outlet.
+
+    """
+
+    def __init__(
+        self: CompressorSimple, name: str, state0: BaseStateClass, pi: np.float64,
+    ):
+        """Initialize CompressorSimple class.
+
+        Init function of the CompressorSimple class.
+
+        """
+        super().__init__(name=name, state0=state0)
+
+        # Compressor parameters
+        self._pi = pi
+
+    def check_self(self: CompressorSimple) -> bool:
+        return True
+
+    def equation(self: CompressorSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
+        # New state
+        if isinstance(self._ports[self._port_a_name].state, MediumBase) and isinstance(
+            self._ports[self._port_b_name].state, MediumBase
+        ):
+            self._ports[self._port_b_name].state.set_ps(
+                p=self._ports[self._port_a_name].state.p * self._pi,
+                s=self._ports[self._port_a_name].state.smass,
+            )
+        elif isinstance(
+            self._ports[self._port_a_name].state, MediumHumidAir
+        ) and isinstance(self._ports[self._port_b_name].state, MediumHumidAir):
+            self._ports[self._port_b_name].state.set_psw(
+                p=self._ports[self._port_a_name].state.p * self._pi,
+                s=self._ports[self._port_a_name].state.smass,
+                w=self._ports[self._port_a_name].state.w,
+            )
+        else:
+            logger.error(
+                (
+                    "Wrong state classes in inlet and/or outlet: %s -> %s. "
+                    "Should both be MediumBase or MediumHumidAir."
+                ),
+                self._ports[self._port_a_name].state.__class__.__name__,
+                self._ports[self._port_b_name].state.__class__.__name__,
+            )
+
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
+
+
+class TurbineSimple(BaseFluidOneInletOneOutlet):
+    """TurbineSimple class.
+
+    The TurbineSimple class implements a pump which delivers the mass flow from the
+    inlet with a constant pressure difference dp and ideal, isentropic behavior.
+    No height or velocity difference between inlet and outlet.
+
+    """
+
+    def __init__(
+        self: TurbineSimple, name: str, state0: BaseStateClass, pi: np.float64,
+    ):
+        """Initialize TurbineSimple class.
+
+        Init function of the TurbineSimple class.
+
+        """
+        super().__init__(name=name, state0=state0)
+
+        # Turbine parameters
+        self._pi = pi
+
+    def check_self(self: TurbineSimple) -> bool:
+        return True
+
+    def equation(self: TurbineSimple):
+        # Stop criterions
+        self._last_hmass = self._ports[self._port_b_name].state.hmass
+        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
+
+        # Check mass flow
+        if self._ports[self._port_a_name].state.m_flow <= 0.0:
+            logger.debug("No mass flow in model %s.", self._name)
+            return
+
+        # New state
+        if isinstance(self._ports[self._port_a_name].state, MediumBase) and isinstance(
+            self._ports[self._port_b_name].state, MediumBase
+        ):
+            self._ports[self._port_b_name].state.set_ps(
+                p=self._ports[self._port_a_name].state.p * self._pi,
+                s=self._ports[self._port_a_name].state.smass,
+            )
+        elif isinstance(
+            self._ports[self._port_a_name].state, MediumHumidAir
+        ) and isinstance(self._ports[self._port_b_name].state, MediumHumidAir):
+            self._ports[self._port_b_name].state.set_psw(
+                p=self._ports[self._port_a_name].state.p * self._pi,
+                s=self._ports[self._port_a_name].state.smass,
+                w=self._ports[self._port_a_name].state.w,
+            )
+        else:
+            logger.error(
+                (
+                    "Wrong state classes in inlet and/or outlet: %s -> %s. "
+                    "Should both be MediumBase or MediumHumidAir."
+                ),
+                self._ports[self._port_a_name].state.__class__.__name__,
+                self._ports[self._port_b_name].state.__class__.__name__,
+            )
+
+        # New mass flow
+        self._ports[self._port_b_name].state.m_flow = self._ports[
+            self._port_a_name
+        ].state.m_flow
 
 
 if __name__ == "__main__":
     logger = get_logger(__name__)
-    logger.warning("This is the file for the machine model classes.")
+    logger.info("This is the file for the sources model classes.")

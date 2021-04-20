@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import List, Dict, Type, Union, Optional, Tuple
+from typing import List, Dict, Type, Union, Optional, Tuple, Any
 
 # from matplotlib import pyplot as plt
 import networkx as nx
@@ -512,14 +512,41 @@ class BaseModelClass(ABC):
     #         logger.error("Unknown port name: %s.", port_name)
     #         raise SystemExit
 
-    def check_state(self: BaseModelClass) -> bool:
-        if not (
-            self._energy_balance == 0.0
-            and self._momentum_balance == 0.0
-            and self._mass_balance == 0.0
-        ):
+    def check_state(
+        self: BaseModelClass,
+        max_error_energy: np.float64 = np.float64(1),
+        max_error_momentum: np.float64 = np.float64(1),
+        max_error_mass: np.float64 = np.float64(0.001),
+    ) -> bool:
+        if self._energy_balance != max_error_energy:
+            logger.info(
+                "Energy balance of model %s above the maximum error %s: %s",
+                self._name,
+                str(max_error_energy),
+                str(self._energy_balance),
+            )
+            return False
+        if self._momentum_balance != max_error_momentum:
+            logger.info(
+                "Momentum balance of model %s above the maximum error %s: %s",
+                self._name,
+                str(max_error_momentum),
+                str(self._momentum_balance),
+            )
+            return False
+        if self._mass_balance != max_error_mass:
+            logger.info(
+                "Mass balance of model %s above the maximum error %s: %s",
+                self._name,
+                str(max_error_mass),
+                str(self._mass_balance),
+            )
             return False
         return True
+
+    @abstractmethod
+    def update_balances(self: BaseModelClass) -> None:
+        ...
 
     @abstractmethod
     def check_self(self: BaseModelClass) -> BaseResultClass:
@@ -885,30 +912,24 @@ class BaseSignalClass(ABC):
 
     """
 
-    def __init__(self, value: np.float64) -> None:
-        """Initialize BaseSignalClass.
-
-        Init function of the BaseSignalClass.
-
-        """
-        # Signal parameters
-        self._value = value
-
+    @abstractmethod
     def copy(self: BaseSignalClass) -> BaseSignalClass:
         """Copy the BaseSignalClass object.
 
         Method to copy the class object.
 
         """
-        return BaseSignalClass(self._value)
+        ...
 
-    @property
-    def value(self) -> np.float64:
+    @abstractmethod
+    def get_value(self: BaseSignalClass) -> Any:
         return self._value
 
-    @value.setter
-    def value(self, value: np.float64) -> None:
+    @abstractmethod
+    def set_value(self: BaseSignalClass, value: Any) -> None:
         self._value = value
+
+    value = property(get_value, set_value)
 
 
 # System classes
@@ -1289,6 +1310,135 @@ class MediumHumidAir(BaseStateClass):
         self: BaseStateClass, T: np.float64, s: np.float64, w: np.float64
     ) -> None:
         ...
+
+
+# Signal classes
+class SignalBoolean(BaseSignalClass):
+    """Signal class.
+
+    The signal class is derived from the BaseSignalClass and defines a certain
+    data type for the value of the signal.
+
+    """
+
+    def __init__(self: SignalBoolean, value: np.bool8) -> None:
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        # Signal parameters
+        self._value = value
+
+    def copy(self: SignalBoolean) -> SignalBoolean:
+        """Copy the BaseSignalClass object.
+
+        Method to copy the class object.
+
+        """
+        return SignalBoolean(self._value)
+
+    def get_value(self: SignalBoolean) -> np.bool8:
+        return self._value
+
+    def set_value(self: SignalBoolean, value: np.bool8) -> None:
+        self._value = value
+
+
+class SignalInteger(BaseSignalClass):
+    """Signal class.
+
+    The signal class is derived from the BaseSignalClass and defines a certain
+    data type for the value of the signal.
+
+    """
+
+    def __init__(self: SignalInteger, value: np.int64) -> None:
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        # Signal parameters
+        self._value = value
+
+    def copy(self: SignalInteger) -> SignalInteger:
+        """Copy the BaseSignalClass object.
+
+        Method to copy the class object.
+
+        """
+        return SignalInteger(self._value)
+
+    def get_value(self: SignalInteger) -> np.int64:
+        return self._value
+
+    def set_value(self: SignalInteger, value: np.int64) -> None:
+        self._value = value
+
+
+class SignalFloat(BaseSignalClass):
+    """Signal class.
+
+    The signal class is derived from the BaseSignalClass and defines a certain
+    data type for the value of the signal.
+
+    """
+
+    def __init__(self: SignalFloat, value: np.float64) -> None:
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        # Signal parameters
+        self._value = value
+
+    def copy(self: SignalFloat) -> SignalFloat:
+        """Copy the BaseSignalClass object.
+
+        Method to copy the class object.
+
+        """
+        return SignalFloat(self._value)
+
+    def get_value(self: SignalFloat) -> np.float64:
+        return self._value
+
+    def set_value(self: SignalFloat, value: np.float64) -> None:
+        self._value = value
+
+
+class SignalComplex(BaseSignalClass):
+    """Signal class.
+
+    The signal class is derived from the BaseSignalClass and defines a certain
+    data type for the value of the signal.
+
+    """
+
+    def __init__(self: SignalComplex, value: np.complex128) -> None:
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        # Signal parameters
+        self._value = value
+
+    def copy(self: SignalComplex) -> SignalComplex:
+        """Copy the BaseSignalClass object.
+
+        Method to copy the class object.
+
+        """
+        return SignalComplex(self._value)
+
+    def get_value(self: SignalComplex) -> np.complex128:
+        return self._value
+
+    def set_value(self: SignalComplex, value: np.complex128) -> None:
+        self._value = value
 
 
 if __name__ == "__main__":
