@@ -41,6 +41,18 @@ class PortTypes(Enum):
     SIGNAL_INLET_OUTLET = auto()
 
 
+class StatePhases(Enum):
+    LIQUID = 0
+    SUPERCRITICAL = 1
+    SUPERCRITICAL_GAS = 2
+    SUPERCRITICAL_LIQUID = 3
+    CRITICAL_POINT = 4
+    GAS = 5
+    TWOPHASE = 6
+    UNKNOWN = 7
+    NOT_IMPOSED = 8
+
+
 # Result classes
 class BaseResultClass(ABC):
     ...
@@ -899,6 +911,17 @@ class BaseStateClass(ABC):
 
         Returns:
             np.float64: Compressibility factor
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def phase(self: BaseStateClass) -> StatePhases:
+        """State phase.
+
+        Returns:
+            StatePhases: State phase
 
         """
         ...

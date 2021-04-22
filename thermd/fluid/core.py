@@ -19,6 +19,7 @@ from thermd.core import (
     PortSignal,
     PortState,
     PortTypes,
+    SignalFloat,
 )
 from thermd.helper import get_logger
 
@@ -137,12 +138,12 @@ class BaseFluidOneOutlet(BaseModelClass):
     def stop_criterion_signal(self: BaseFluidOneOutlet) -> np.float64:
         return np.float64(0.0)
 
-    def update_balances(self: BaseModelClass) -> None:
+    def update_balances(self: BaseFluidOneOutlet) -> None:
         self._energy_balance = np.float64(0.0)
         self._momentum_balance = np.float64(0.0)
         self._mass_balance = np.float64(0.0)
 
-    def get_results(self: BaseFluidOneInlet) -> ModelResult:
+    def get_results(self: BaseFluidOneOutlet) -> ModelResult:
         states = {
             self._port_b_name: self._ports[self._port_b_name].state,
         }
@@ -208,7 +209,7 @@ class BaseFluidOneInletOneOutlet(BaseModelClass):
     def stop_criterion_signal(self: BaseFluidOneInletOneOutlet) -> np.float64:
         return np.float64(0.0)
 
-    def update_balances(self: BaseModelClass) -> None:
+    def update_balances(self: BaseFluidOneInletOneOutlet) -> None:
         if isinstance(self._ports[self._port_a_name].state, MediumBase):
             Ha = (
                 self._ports[self._port_a_name].state.m_flow
@@ -246,10 +247,180 @@ class BaseFluidOneInletOneOutlet(BaseModelClass):
             - self._ports[self._port_a_name].state.m_flow
         )
 
-    def get_results(self: BaseFluidOneInlet) -> ModelResult:
+    def get_results(self: BaseFluidOneInletOneOutlet) -> ModelResult:
         states = {
             self._port_a_name: self._ports[self._port_a_name].state,
             self._port_b_name: self._ports[self._port_b_name].state,
+        }
+        return ModelResult(states=states, signals=None,)
+
+
+class BaseFluidTwoInletsTwoOutlets(BaseModelClass):
+    """Generic block class.
+
+    The generic fluid class implements a BaseModelClass with defined inlets and outlets.
+
+    """
+
+    def __init__(
+        self: BaseFluidTwoInletsTwoOutlets,
+        name: str,
+        state0_1: BaseStateClass,
+        state0_2: BaseStateClass,
+    ):
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        super().__init__(name=name)
+
+        # Ports
+        self._port_a1_name = self.name + "_port_a1"
+        self._port_a2_name = self.name + "_port_a2"
+        self._port_b1_name = self.name + "_port_b1"
+        self._port_b2_name = self.name + "_port_b2"
+        self.add_port(
+            PortState(
+                name=self._port_a1_name,
+                port_type=PortTypes.STATE_INLET,
+                state=state0_1,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_a2_name,
+                port_type=PortTypes.STATE_INLET,
+                state=state0_2,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b1_name,
+                port_type=PortTypes.STATE_OUTLET,
+                state=state0_1,
+            )
+        )
+        self.add_port(
+            PortState(
+                name=self._port_b2_name,
+                port_type=PortTypes.STATE_OUTLET,
+                state=state0_2,
+            )
+        )
+
+        # Stop criterions
+        self._last_hmass = state0_1.hmass
+        self._last_m_flow = state0_1.m_flow
+
+    @property
+    def port_a1(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+        return self._ports[self._port_a1_name]
+
+    @property
+    def port_a2(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+        return self._ports[self._port_a2_name]
+
+    @property
+    def port_b1(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+        return self._ports[self._port_b1_name]
+
+    @property
+    def port_b2(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+        return self._ports[self._port_b2_name]
+
+    @property
+    def stop_criterion_energy(self: BaseFluidTwoInletsTwoOutlets) -> np.float64:
+        return self._ports[self._port_b1_name].state.hmass - self._last_hmass
+
+    @property
+    def stop_criterion_momentum(self: BaseFluidTwoInletsTwoOutlets) -> np.float64:
+        return np.float64(0.0)
+
+    @property
+    def stop_criterion_mass(self: BaseFluidTwoInletsTwoOutlets) -> np.float64:
+        return self._ports[self._port_b1_name].state.m_flow - self._last_m_flow
+
+    @property
+    def stop_criterion_signal(self: BaseFluidTwoInletsTwoOutlets) -> np.float64:
+        return np.float64(0.0)
+
+    def update_balances(self: BaseFluidTwoInletsTwoOutlets) -> None:
+        if isinstance(self._ports[self._port_a1_name].state, MediumBase):
+            Ha1 = (
+                self._ports[self._port_a1_name].state.m_flow
+                * self._ports[self._port_a1_name].state.hmass
+            )
+        elif isinstance(self._ports[self._port_a1_name].state, MediumHumidAir):
+            Ha1 = (
+                self._ports[self._port_a1_name].state.m_flow
+                / (1 + self._ports[self._port_a1_name].state.w)
+            ) * self._ports[self._port_a1_name].state.hmass
+        else:
+            logger.error(
+                "Wrong state class: %s. Should be MediumBase or MediumHumidAir",
+                self._ports[self._port_a1_name].state.__class__.__name__,
+            )
+        if isinstance(self._ports[self._port_a2_name].state, MediumBase):
+            Ha2 = (
+                self._ports[self._port_a2_name].state.m_flow
+                * self._ports[self._port_a2_name].state.hmass
+            )
+        elif isinstance(self._ports[self._port_a2_name].state, MediumHumidAir):
+            Ha1 = (
+                self._ports[self._port_a2_name].state.m_flow
+                / (1 + self._ports[self._port_a2_name].state.w)
+            ) * self._ports[self._port_a2_name].state.hmass
+        else:
+            logger.error(
+                "Wrong state class: %s. Should be MediumBase or MediumHumidAir",
+                self._ports[self._port_a2_name].state.__class__.__name__,
+            )
+        if isinstance(self._ports[self._port_b1_name].state, MediumBase):
+            Hb1 = (
+                self._ports[self._port_b1_name].state.m_flow
+                * self._ports[self._port_b1_name].state.hmass
+            )
+        elif isinstance(self._ports[self._port_b1_name].state, MediumHumidAir):
+            Hb1 = (
+                self._ports[self._port_b1_name].state.m_flow
+                / (1 + self._ports[self._port_b1_name].state.w)
+            ) * self._ports[self._port_b1_name].state.hmass
+        else:
+            logger.error(
+                "Wrong state class: %s. Should be MediumBase or MediumHumidAir",
+                self._ports[self._port_b1_name].state.__class__.__name__,
+            )
+        if isinstance(self._ports[self._port_b2_name].state, MediumBase):
+            Hb2 = (
+                self._ports[self._port_b2_name].state.m_flow
+                * self._ports[self._port_b2_name].state.hmass
+            )
+        elif isinstance(self._ports[self._port_b2_name].state, MediumHumidAir):
+            Hb2 = (
+                self._ports[self._port_b2_name].state.m_flow
+                / (1 + self._ports[self._port_b2_name].state.w)
+            ) * self._ports[self._port_b2_name].state.hmass
+        else:
+            logger.error(
+                "Wrong state class: %s. Should be MediumBase or MediumHumidAir",
+                self._ports[self._port_b2_name].state.__class__.__name__,
+            )
+        self._energy_balance = Hb1 + Hb2 - Ha1 - Ha2
+        self._momentum_balance = np.float64(0.0)
+        self._mass_balance = (
+            self._ports[self._port_b1_name].state.m_flow
+            + self._ports[self._port_b2_name].state.m_flow
+            - self._ports[self._port_a1_name].state.m_flow
+            - self._ports[self._port_a2_name].state.m_flow
+        )
+
+    def get_results(self: BaseFluidTwoInletsTwoOutlets) -> ModelResult:
+        states = {
+            self._port_a1_name: self._ports[self._port_a1_name].state,
+            self._port_a2_name: self._ports[self._port_a2_name].state,
+            self._port_b1_name: self._ports[self._port_b1_name].state,
+            self._port_b2_name: self._ports[self._port_b2_name].state,
         }
         return ModelResult(states=states, signals=None,)
 
@@ -265,7 +436,7 @@ class BaseFluidOneInletOneOutletOneSignalInlet(BaseModelClass):
         self: BaseFluidOneInletOneOutletOneSignalInlet,
         name: str,
         state0: BaseStateClass,
-        signal0: BaseSignalClass = BaseSignalClass(value=np.float64(0.0)),
+        signal0: BaseSignalClass = SignalFloat(value=np.float64(0.0)),
     ):
         """Initialize class.
 
@@ -397,7 +568,7 @@ class BaseFluidOneInletOneOutletOneSignalOutlet(BaseModelClass):
         self: BaseFluidOneInletOneOutletOneSignalOutlet,
         name: str,
         state0: BaseStateClass,
-        signal0: BaseSignalClass = BaseSignalClass(value=np.float64(0.0)),
+        signal0: BaseSignalClass = SignalFloat(value=np.float64(0.0)),
     ):
         """Initialize class.
 
@@ -529,7 +700,7 @@ class BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet(BaseModelClass):
         self: BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet,
         name: str,
         state0: BaseStateClass,
-        signal0: BaseSignalClass = BaseSignalClass(value=np.float64(0.0)),
+        signal0: BaseSignalClass = SignalFloat(value=np.float64(0.0)),
     ):
         """Initialize class.
 
@@ -1160,7 +1331,10 @@ class BaseFluidTwoInletsOneOutlet(BaseModelClass):
     """
 
     def __init__(
-        self: BaseFluidTwoInletsOneOutlet, name: str, state0: BaseStateClass,
+        self: BaseFluidTwoInletsOneOutlet,
+        name: str,
+        state0_1: BaseStateClass,
+        state0_2: BaseStateClass,
     ):
         """Initialize class.
 
@@ -1175,23 +1349,29 @@ class BaseFluidTwoInletsOneOutlet(BaseModelClass):
         self._port_b_name = self.name + "_port_b"
         self.add_port(
             PortState(
-                name=self._port_a1_name, port_type=PortTypes.STATE_INLET, state=state0,
+                name=self._port_a1_name,
+                port_type=PortTypes.STATE_INLET,
+                state=state0_1,
             )
         )
         self.add_port(
             PortState(
-                name=self._port_a2_name, port_type=PortTypes.STATE_INLET, state=state0,
+                name=self._port_a2_name,
+                port_type=PortTypes.STATE_INLET,
+                state=state0_2,
             )
         )
         self.add_port(
             PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+                name=self._port_b_name,
+                port_type=PortTypes.STATE_OUTLET,
+                state=state0_1,
             )
         )
 
         # Stop criterions
-        self._last_hmass = state0.hmass
-        self._last_m_flow = state0.m_flow
+        self._last_hmass = state0_1.hmass
+        self._last_m_flow = state0_1.m_flow
 
     @property
     def port_a1(self: BaseFluidTwoInletsOneOutlet) -> PortState:

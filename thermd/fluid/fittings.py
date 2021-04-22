@@ -12,7 +12,6 @@ import numpy as np
 from thermd.core import (
     BaseStateClass,
     # BaseSignalClass,
-    ModelResult,
     MediumBase,
     MediumHumidAir,
 )

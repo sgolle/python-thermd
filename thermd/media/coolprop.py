@@ -18,7 +18,7 @@ from CoolProp.HumidAirProp import HAPropsSI
 import math
 import numpy as np
 from scipy import optimize as opt
-from thermd.core import MediumBase, MediumHumidAir
+from thermd.core import MediumBase, MediumHumidAir, StatePhases
 from thermd.helper import get_logger
 
 # Initialize global logger
@@ -39,18 +39,6 @@ class CoolPropBackends(Enum):
     PR = "PR"
     VTPR = "VTPR"
     PCSAFT = "PCSAFT"
-
-
-class CoolPropPhases(Enum):
-    LIQUID = "liquid"
-    SUPERCRITICAL = "supercritical"
-    SUPERCRITICAL_GAS = "supercritical_gas"
-    SUPERCRITICAL_LIQUID = "supercritical_liquid"
-    CRITICAL_POINT = "critical_point"
-    GAS = "gas"
-    TWOPHASE = "twophase"
-    UNKNOWN = "unknown"
-    NOT_IMPOSED = "not_imposed"
 
 
 class CoolPropInputTypes(Enum):
@@ -903,6 +891,16 @@ class MediumCoolProp(MediumBase):
         """
         return np.float64(self._state.compressibility_factor())
 
+    @property
+    def phase(self: MediumCoolProp) -> StatePhases:
+        """State phase.
+
+        Returns:
+            StatePhases: State phase
+
+        """
+        return StatePhases(self._state.phase())
+
     def set_pT(self: MediumCoolProp, p: np.float64, T: np.float64) -> None:
         self._state.update(CoolProp.PT_INPUTS, p, T)
 
@@ -1339,6 +1337,26 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             phi = 1.0
 
         return np.float64(phi)
+
+    @property
+    def phase(self: MediumCoolPropHumidAir) -> StatePhases:
+        """State phase.
+
+        Returns:
+            StatePhases: State phase
+
+        """
+        # Should be supercritical gas, otherwise out of definition
+        # (p < 3786000 Pa, T > 132.5306 K)
+        if self._p > 3786000 or self._T < 132.5306:
+            logger.error(
+                "Humid air medium is out of definition: p = %s, T = %s.",
+                str(self._p),
+                str(self._T),
+            )
+            raise SystemExit
+
+        return StatePhases(2)
 
     @staticmethod
     def __ps_hardy_pT(p: np.float64, T: np.float64) -> np.float64:
