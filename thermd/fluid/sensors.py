@@ -128,5 +128,4 @@ class SensorMflow(BaseFluidOneInletOneOutletOneSignalOutlet):
 
 
 if __name__ == "__main__":
-    logger = get_logger(__name__)
     logger.info("This is the file for the sensors model classes.")

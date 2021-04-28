@@ -553,5 +553,4 @@ class Tanh(BaseBlockOneInletOneOutlet):
 
 
 if __name__ == "__main__":
-    logger = get_logger(__name__)
     logger.info("This is the file for the math (float) block classes.")
