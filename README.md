@@ -1,3 +1,3 @@
-# python-thermd
+# Thermd Python Library for 1D Thermodynamic System Simulation
 
-Library of 1-dimensional (modelica-like) models. Core file with the API of the library.
+**EXPERIMENTAL/ALPHA**
