@@ -19,7 +19,7 @@ from thermd.fluid.core import (
     BaseFluidOneInletTwoOutlets,
     BaseFluidOneInletThreeOutlets,
     BaseFluidOneInletFourOutlets,
-    BaseFluidTwoInletOneOutlets,
+    BaseFluidTwoInletsOneOutlet,
 )
 from thermd.helper import get_logger
 
@@ -265,7 +265,7 @@ class JunctionOneToFour(BaseFluidOneInletFourOutlets):
         )
 
 
-class JunctionTwoToOne(BaseFluidTwoInletOneOutlets):
+class JunctionTwoToOne(BaseFluidTwoInletsOneOutlet):
     """JunctionTwoToOne class.
 
     The JunctionTwoToOne class implements a ...

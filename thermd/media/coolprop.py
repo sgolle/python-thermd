@@ -10,7 +10,7 @@ CoolProp HumidAir library.
 
 from __future__ import annotations
 from enum import Enum, auto
-from typing import List, Type
+from typing import List, Type, Union
 
 from CoolProp import AbstractState, CoolProp
 from CoolProp.CoolProp import PropsSI
@@ -420,13 +420,23 @@ class CoolPropFluid:
     """
 
     def __init__(
-        self: CoolPropFluid, fluid_name: str, fluid_type: CoolPropFluidTypes,
+        self: CoolPropFluid,
+        fluid: Union[
+            CoolPropPureFluids,
+            List[CoolPropPureFluids],
+            CoolPropIncompPureFluids,
+            CoolPropIncompMixturesMassBased,
+            CoolPropIncompMixturesVolumeBased,
+        ],
+        fluid_name: str,
+        fluid_type: CoolPropFluidTypes,
     ) -> None:
         """Initialize CoolProp fluid class.
 
         The init function of the CoolProp fluid class.
 
         """
+        self._fluid = fluid
         self._fluid_name = fluid_name
         self._fluid_type = fluid_type
 
@@ -434,7 +444,9 @@ class CoolPropFluid:
     def new_pure_fluid(
         cls: Type[CoolPropFluid], fluid: CoolPropPureFluids,
     ) -> CoolPropFluid:
-        return cls(fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.PURE)
+        return cls(
+            fluid=fluid, fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.PURE
+        )
 
     @classmethod
     def new_mixture(
@@ -464,13 +476,17 @@ class CoolPropFluid:
             )
             raise SystemExit
 
-        return cls(fluid_name=fluid_name, fluid_type=CoolPropFluidTypes.MIXTURE)
+        return cls(
+            fluid=fluids, fluid_name=fluid_name, fluid_type=CoolPropFluidTypes.MIXTURE
+        )
 
     @classmethod
     def new_incomp(
         cls: Type[CoolPropFluid], fluid: CoolPropIncompPureFluids
     ) -> CoolPropFluid:
-        return cls(fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.INCOMP)
+        return cls(
+            fluid=fluid, fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.INCOMP
+        )
 
     @classmethod
     def new_incomp_mass_based(
@@ -479,7 +495,11 @@ class CoolPropFluid:
         fraction: np.float64,
     ) -> CoolPropFluid:
         fluid_name = fluid.value + "[" + str(fraction) + "]"
-        return cls(fluid_name=fluid_name, fluid_type=CoolPropFluidTypes.INCOMPMIXTURE)
+        return cls(
+            fluid=fluid,
+            fluid_name=fluid_name,
+            fluid_type=CoolPropFluidTypes.INCOMPMIXTURE,
+        )
 
     @classmethod
     def new_incomp_volume_based(
@@ -488,7 +508,11 @@ class CoolPropFluid:
         fraction: np.float64,
     ) -> CoolPropFluid:
         fluid_name = fluid.value + "[" + str(fraction) + "]"
-        return cls(fluid_name=fluid_name, fluid_type=CoolPropFluidTypes.INCOMPMIXTURE)
+        return cls(
+            fluid=fluid,
+            fluid_name=fluid_name,
+            fluid_type=CoolPropFluidTypes.INCOMPMIXTURE,
+        )
 
     @property
     def fluid_name(self: CoolPropFluid) -> str:
@@ -899,6 +923,9 @@ class MediumCoolProp(MediumBase):
             StatePhases: State phase
 
         """
+        if self._backend == CoolPropBackends.INCOMP:
+            return StatePhases(0)
+
         return StatePhases(self._state.phase())
 
     def set_pT(self: MediumCoolProp, p: np.float64, T: np.float64) -> None:
@@ -939,6 +966,10 @@ class MediumCoolProp(MediumBase):
         self: MediumCoolProp, output_types: List[CoolPropOutputTypes],
     ) -> List[np.float64]:
         return [np.float64(self._state.keyed_output(k)) for k in output_types]
+
+    @property
+    def fluid_name(self: MediumCoolProp) -> str:
+        return self._fluid.fluid_name
 
 
 class MediumCoolPropHumidAir(MediumHumidAir):
@@ -1033,6 +1064,30 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         return MediumCoolPropHumidAir(
             p=self._p, T=self._T, w=self._w, m_flow=self._m_flow
         )
+
+    @classmethod
+    def from_pTw(
+        cls: Type[MediumCoolPropHumidAir],
+        p: np.float64,
+        T: np.float64,
+        w: np.float64,
+        m_flow: np.float64 = np.float64(0.0),
+    ) -> MediumCoolPropHumidAir:
+        return cls(p=p, T=T, w=w, m_flow=m_flow)
+
+    @classmethod
+    def from_pTphi(
+        cls: Type[MediumCoolPropHumidAir],
+        p: np.float64,
+        T: np.float64,
+        phi: np.float64,
+        m_flow: np.float64 = np.float64(0.0),
+    ) -> MediumCoolPropHumidAir:
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity phi is not between 0 and 1: %s.", str(phi))
+            raise SystemExit
+        w = HAPropsSI("W", "T", T, "P", p, "R", phi)
+        return cls(p=p, T=T, w=w, m_flow=m_flow)
 
     @property
     def cpmass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1303,21 +1358,98 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         return np.float64(Z)
 
     @property
-    def w(self: MediumCoolPropHumidAir) -> np.float64:
-        """Humidity ratio.
+    def phase(self: MediumCoolPropHumidAir) -> StatePhases:
+        """State phase.
 
         Returns:
-            np.float64: Humidity ratio
+            StatePhases: State phase
+
+        """
+        # Should be supercritical gas, otherwise out of definition
+        # (p < 3786000 Pa, T > 132.5306 K)
+        if self._p > 3786000 or self._T < 132.5306:
+            logger.error(
+                "Humid air medium is out of definition: p = %s, T = %s.",
+                str(self._p),
+                str(self._T),
+            )
+            raise SystemExit
+
+        return StatePhases(2)
+
+    @property
+    def w(self: MediumCoolPropHumidAir) -> np.float64:
+        """Humidity ratio in kg/kg.
+
+        Returns:
+            np.float64: Humidity rati in kg/kg
 
         """
         return self._w
 
     @property
-    def ws(self: MediumCoolPropHumidAir) -> np.float64:
-        """Humidity ratio.
+    def w_gaseous(self: MediumCoolPropHumidAir) -> np.float64:
+        """Humidity ratio of only gaseous water in kg/kg.
 
         Returns:
-            np.float64: Humidity ratio
+            np.float64: Humidity ratio of only gaseous water in kg/kg
+
+        """
+        if self.ws >= self._w:  # under saturated
+            w_gaseous = self._w
+        else:  # saturated
+            w_gaseous = self.ws
+
+        return np.float64(w_gaseous)
+
+    @property
+    def w_liquid(self: MediumCoolPropHumidAir) -> np.float64:
+        """Humidity ratio of only liquid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only liquid water in kg/kg
+
+        """
+        if self.ws >= self._w:  # under saturated
+            w_liquid = 0.0
+        else:  # saturated
+            if self._T > self._T_triple:  # saturated with liquid water
+                w_liquid = self._w - self.ws
+            elif self._T < self._T_triple:  # saturated with water ice
+                w_liquid = 0.0
+            else:
+                logger.error("Humid air is not defined at T = T_triple.")
+                raise SystemExit
+
+        return np.float64(w_liquid)
+
+    @property
+    def w_solid(self: MediumCoolPropHumidAir) -> np.float64:
+        """Humidity ratio of only solid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only solid water in kg/kg
+
+        """
+        if self.ws >= self._w:  # under saturated
+            w_solid = 0.0
+        else:  # saturated
+            if self._T > self._T_triple:  # saturated with liquid water
+                w_solid = 0.0
+            elif self._T < self._T_triple:  # saturated with water ice
+                w_solid = self._w - self.ws
+            else:
+                logger.error("Humid air is not defined at T = T_triple.")
+                raise SystemExit
+
+        return np.float64(w_solid)
+
+    @property
+    def ws(self: MediumCoolPropHumidAir) -> np.float64:
+        """Humidity ratio at saturation condition.
+
+        Returns:
+            np.float64: Humidity ratio at saturation condition
 
         """
         return self._ws_pT(p=self._p, T=self._T)
@@ -1338,28 +1470,8 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         return np.float64(phi)
 
-    @property
-    def phase(self: MediumCoolPropHumidAir) -> StatePhases:
-        """State phase.
-
-        Returns:
-            StatePhases: State phase
-
-        """
-        # Should be supercritical gas, otherwise out of definition
-        # (p < 3786000 Pa, T > 132.5306 K)
-        if self._p > 3786000 or self._T < 132.5306:
-            logger.error(
-                "Humid air medium is out of definition: p = %s, T = %s.",
-                str(self._p),
-                str(self._T),
-            )
-            raise SystemExit
-
-        return StatePhases(2)
-
     @staticmethod
-    def __ps_hardy_pT(p: np.float64, T: np.float64) -> np.float64:
+    def _ps_hardy_pT(p: np.float64, T: np.float64) -> np.float64:
         if T >= 273.15:
             ps = math.exp(
                 (-2.8365744) * 10 ** 3 * T ** (-2)
@@ -1410,7 +1522,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         return ps
 
-    def __w_hardy_pTphi(
+    def _w_hardy_pTphi(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, phi: np.float64
     ) -> np.float64:
         ps = self._ps_hardy_pT(p, T)
@@ -1418,19 +1530,19 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         w = abs(0.622 * ((phi * ps) / (p - phi * ps)))
         return w
 
-    def __ws_hardy_pT(self: MediumCoolPropHumidAir, p: np.float64, T: np.float64):
+    def _ws_hardy_pT(self: MediumCoolPropHumidAir, p: np.float64, T: np.float64):
         ps = self._ps_hardy_pT(p, T)
 
         ws = abs(0.622 * (ps / (p - ps)))
         return ws
 
-    # def __phi_hardy_pTw(
+    # def _phi_hardy_pTw(
     #     self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
     # ) -> np.float64:
     #     phi = (p / self._ps_hardy_pT(p, T)) * (w / (0.622 + w))
     #     return phi
 
-    def __w_pTphi(
+    def _w_pTphi(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, phi: np.float64
     ) -> np.float64:
         if -100 + 273.15 <= T <= 100 + 273.15:
@@ -1452,12 +1564,12 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         return w
 
-    def __ws_pT(
+    def _ws_pT(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64
     ) -> np.float64:
         return self._w_pTphi(p=p, T=T, phi=np.float64(1.0))
 
-    def __h_pTw(
+    def _h_pTw(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
     ) -> np.float64:
         """Mass-specific enthalpy in J/kg.
@@ -1472,7 +1584,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             h = HAPropsSI("H", "T", T, "P", p, "W", w) - self._h_humid_air_0
 
         else:  # saturated
-            if T > self._T_tr:  # saturated with liquid water
+            if T > self._T_triple:  # saturated with liquid water
                 h = (
                     HAPropsSI("H", "T", T, "P", p, "R", 1)
                     - self._h_humid_air_0
@@ -1480,7 +1592,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                     * (PropsSI("H", "T", T, "Q", 0, "Water") - self._h_water_liquid_0)
                 )
 
-            elif T < self._T_tr:  # saturated with water ice
+            elif T < self._T_triple:  # saturated with water ice
                 h = (
                     HAPropsSI("H", "T", T, "P", p, "R", 1)
                     - self._h_humid_air_0
@@ -1488,7 +1600,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                     * (
                         (
                             -self._delta_h_melting
-                            + self._cp_water_ice_poly(T - 273.15) * (T - self._T_tr)
+                            + self._cp_water_ice_poly(T - 273.15) * (T - self._T_triple)
                         )
                         - self._h_water_ice_0
                     )
@@ -1500,7 +1612,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         return np.float64(h)
 
-    def __s_pTw(
+    def _s_pTw(
         self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, w: np.float64
     ) -> np.float64:
         """Mass-specific entropy in J/kg/K.
@@ -1515,7 +1627,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             s = HAPropsSI("S", "T", T, "P", p, "W", w) - self._s_humid_air_0
 
         else:  # saturated
-            if T > self._T_tr:  # saturated with liquid water
+            if T > self._T_triple:  # saturated with liquid water
                 s = (
                     HAPropsSI("S", "T", T, "P", p, "R", 1)
                     - self._s_humid_air_0
@@ -1523,17 +1635,17 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                     * (PropsSI("S", "T", T, "Q", 0, "Water") - self._s_water_liquid_0)
                 )
 
-            elif T < self._T_tr:  # saturated with water ice
+            elif T < self._T_triple:  # saturated with water ice
                 s = (
                     HAPropsSI("S", "T", T, "P", p, "R", 1)
                     - self._s_humid_air_0
                     + (w - ws)
                     * (
                         (
-                            (-1.0) * (self._delta_h_melting / self._T_tr)
+                            (-1.0) * (self._delta_h_melting / self._T_triple)
                             + self._cp_water_ice_poly(T - 273.15)
                             * math.log(T)
-                            / self._T_tr
+                            / self._T_triple
                         )
                     )
                     - self._s_water_ice_0
@@ -1545,7 +1657,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         return np.float64(s)
 
-    def __T_phw_fun(
+    def _T_phw_fun(
         self: MediumCoolPropHumidAir,
         T: np.float64,
         p: np.float64,
@@ -1554,14 +1666,14 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ):
         return h - self._h_pTw(p=p, T=T, w=w)
 
-    def __T_phw(
+    def _T_phw(
         self: MediumCoolPropHumidAir, p: np.float64, h: np.float64, w: np.float64
     ):
         T = opt.fsolve(self._T_phw_fun, self._T, args=(p, h, w))[0]
 
         return np.float64(T)
 
-    def __T_psw_fun(
+    def _T_psw_fun(
         self: MediumCoolPropHumidAir,
         T: np.float64,
         p: np.float64,
@@ -1570,14 +1682,14 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ):
         return s - self._s_pTw(p=p, T=T, w=w)
 
-    def __T_psw(
+    def _T_psw(
         self: MediumCoolPropHumidAir, p: np.float64, s: np.float64, w: np.float64
     ):
         T = opt.fsolve(self._T_psw_fun, self._T, args=(p, s, w))[0]
 
         return np.float64(T)
 
-    def __p_Thw_fun(
+    def _p_Thw_fun(
         self: MediumCoolPropHumidAir,
         p: np.float64,
         T: np.float64,
@@ -1586,14 +1698,14 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ):
         return h - self._h_pTw(p=p, T=T, w=w)
 
-    def __p_Thw(
+    def _p_Thw(
         self: MediumCoolPropHumidAir, T: np.float64, h: np.float64, w: np.float64
     ):
         p = opt.fsolve(self._p_Thw_fun, self._p, args=(T, h, w))[0]
 
         return np.float64(p)
 
-    def __p_Tsw_fun(
+    def _p_Tsw_fun(
         self: MediumCoolPropHumidAir,
         p: np.float64,
         T: np.float64,
@@ -1602,7 +1714,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ):
         return s - self._s_pTw(p=p, T=T, w=w)
 
-    def __p_Tsw(
+    def _p_Tsw(
         self: MediumCoolPropHumidAir, T: np.float64, s: np.float64, w: np.float64
     ):
         p = opt.fsolve(self._p_Tsw_fun, self._p, args=(T, s, w))[0]
@@ -1643,6 +1755,77 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         self._p = self._p_Tsw(T=T, s=s, w=w)
         self._T = T
         self._w = w
+
+    def set_pTphi(
+        self: MediumCoolPropHumidAir, p: np.float64, T: np.float64, phi: np.float64
+    ) -> None:
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity is not between 0 and 1: %s", phi)
+            raise SystemExit
+
+        self._p = p
+        self._T = T
+        self._w = self._w_pTphi(p=p, T=T, phi=phi)
+
+    def set_phphi(
+        self: MediumCoolPropHumidAir, p: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        logger.debug("No boundary check of CoolProp function in set_phphi.")
+
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity is not between 0 and 1: %s", phi)
+            raise SystemExit
+
+        w = np.float64(HAPropsSI("W", "P", p, "H", h, "R", phi))
+        self._p = p
+        self._T = self._T_phw(p=p, h=h, w=w)
+        self._w = w
+
+    def set_Thphi(
+        self: MediumCoolPropHumidAir, T: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        logger.debug("No boundary check of CoolProp function in set_Thphi.")
+
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity is not between 0 and 1: %s", phi)
+            raise SystemExit
+
+        w = np.float64(HAPropsSI("W", "T", T, "H", h, "R", phi))
+        self._p = self._p_Thw(T=T, h=h, w=w)
+        self._T = T
+        self._w = w
+
+    def set_psphi(
+        self: MediumCoolPropHumidAir, p: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        logger.debug("No boundary check of CoolProp function in set_psphi.")
+
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity is not between 0 and 1: %s", phi)
+            raise SystemExit
+
+        w = np.float64(HAPropsSI("W", "P", p, "S", s, "R", phi))
+        self._p = p
+        self._T = self._T_psw(p=p, s=s, w=w)
+        self._w = w
+
+    def set_Tsphi(
+        self: MediumCoolPropHumidAir, T: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        logger.debug("No boundary check of CoolProp function in set_Tsphi.")
+
+        if not 0.0 <= phi <= 1.0:
+            logger.error("Relative humidity is not between 0 and 1: %s", phi)
+            raise SystemExit
+
+        w = np.float64(HAPropsSI("W", "T", T, "S", s, "R", phi))
+        self._p = self._p_Tsw(T=T, s=s, w=w)
+        self._T = T
+        self._w = w
+
+    @property
+    def fluid_name(self: MediumCoolPropHumidAir) -> str:
+        return "Humid Air"
 
 
 if __name__ == "__main__":

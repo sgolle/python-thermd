@@ -66,7 +66,7 @@ class HXMixin:
     ):
         return (state1_in.T - state1_out.T) / (state1_in.T - state2_in.T)
 
-    def T_out(
+    def T1_out(
         self: HXMixin,
         state1_in: BaseStateClass,
         state2_in: BaseStateClass,
@@ -82,9 +82,9 @@ class HXMixin:
         eps1 = self.eps_N_counterflow(N1, C1)
 
         # Outlet temperature fluid 1
-        T_out = state1_in.T - (state1_in.T - state2_in.T) * eps1
+        T1_out = state1_in.T - (state1_in.T - state2_in.T) * eps1
 
-        return T_out
+        return T1_out
 
     @staticmethod
     def N_eps_counterflow(eps: np.float64, C: np.float64) -> np.float64:
@@ -293,7 +293,7 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
         state1_out = state1_in.copy()
         state2_out = state2_in.copy()
 
-        T1_out = self.T_out(state1_in=state1_in, state2_in=state2_in, kA=self._kA)
+        T1_out = self.T1_out(state1_in=state1_in, state2_in=state2_in, kA=self._kA)
 
         # New state fluid 1
         if isinstance(state1_in, MediumBase):
@@ -320,12 +320,12 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
 
         # New state fluid 2
         if isinstance(state2_in, MediumBase):
-            h2_out = Q / state2_in.m_flow + state2_in.hmass
+            h2_out = state2_in.hmass - Q / state2_in.m_flow
             state2_out.set_ph(
                 p=state2_in.p + dp_2, h=h2_out,
             )
         elif isinstance(state2_in, MediumHumidAir):
-            h2_out = Q / (state2_in.m_flow / (1 + state2_in.w)) + state2_in.hmass
+            h2_out = state2_in.hmass - Q / (state2_in.m_flow / (1 + state2_in.w))
             state2_out.set_phw(
                 p=state2_in.p + dp_2, h=h2_out, w=state2_in.w,
             )
@@ -374,12 +374,12 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
 
         # New state fluid 2
         if isinstance(state2_in, MediumBase):
-            h2_out = Q / state2_in.m_flow + state2_in.hmass
+            h2_out = state2_in.hmass - Q / state2_in.m_flow
             state2_out.set_ph(
                 p=state2_in.p + dp_2, h=h2_out,
             )
         elif isinstance(state2_in, MediumHumidAir):
-            h2_out = Q / (state2_in.m_flow / (1 + state2_in.w)) + state2_in.hmass
+            h2_out = state2_in.hmass - Q / (state2_in.m_flow / (1 + state2_in.w))
             state2_out.set_phw(
                 p=state2_in.p + dp_2, h=h2_out, w=state2_in.w,
             )

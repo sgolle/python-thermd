@@ -206,8 +206,9 @@ class BaseSystemClass(ABC):
 
         logger.info("Add model: %s", node_class.name)
 
-        if node_class.name in self._blocks:
+        if node_class.name in self._models:
             logger.error("Model name already in use: %s", node_class.name)
+            raise SystemExit
 
         self._network.add_node(
             node_class.name, node_type=NodeTypes.MODEL, node_class=node_class
@@ -244,6 +245,7 @@ class BaseSystemClass(ABC):
 
         if node_class.name in self._blocks:
             logger.error("Block name already in use: %s", node_class.name)
+            raise SystemExit
 
         self._network.add_node(
             node_class.name, node_type=NodeTypes.BLOCK, node_class=node_class
@@ -356,6 +358,11 @@ class BaseSystemClass(ABC):
 
         return models, blocks
 
+    @staticmethod
+    def pyexcel_decimal_replace(s):
+        s = s.replace(".", ",")
+        return s
+
     def save_results(self: BaseSystemClass, path: Path):
         if self._result is None:
             logger.error(
@@ -372,6 +379,7 @@ class BaseSystemClass(ABC):
                 "Node name",
                 "Node type",
                 "Port name",
+                "Fluid name",
                 "Temperature in K",
                 "Pressure in Pa",
                 "Spec. enthalpy in J/kg",
@@ -392,6 +400,7 @@ class BaseSystemClass(ABC):
                                 model_name,
                                 "Model",
                                 port_name,
+                                str(state.fluid_name),
                                 str(state.T),
                                 str(state.p),
                                 str(state.hmass),
@@ -416,6 +425,8 @@ class BaseSystemClass(ABC):
         book = pe.get_book(
             bookdict={"states": states_results, "signals": signals_results}
         )
+        book.states.map(self.pyexcel_decimal_replace)
+        book.signals.map(self.pyexcel_decimal_replace)
         book.save_as(filename=path.as_posix())
 
     @abstractmethod
@@ -926,6 +937,11 @@ class BaseStateClass(ABC):
         """
         ...
 
+    @property
+    @abstractmethod
+    def fluid_name(self: BaseStateClass) -> str:
+        ...
+
 
 class BaseSignalClass(ABC):
     """Base class of the signals.
@@ -934,6 +950,15 @@ class BaseSignalClass(ABC):
     signal classes. Signals are one type of connectors between models or blocks.
 
     """
+
+    def __init__(self: BaseSignalClass, value: Any) -> None:
+        """Initialize class.
+
+        Init function of the class.
+
+        """
+        # Signal parameters
+        self._value = value
 
     @abstractmethod
     def copy(self: BaseSignalClass) -> BaseSignalClass:
@@ -944,15 +969,13 @@ class BaseSignalClass(ABC):
         """
         ...
 
-    @abstractmethod
-    def get_value(self: BaseSignalClass) -> Any:
+    @property
+    def value(self: BaseSignalClass) -> Any:
         return self._value
 
-    @abstractmethod
-    def set_value(self: BaseSignalClass, value: Any) -> None:
+    @value.setter
+    def value(self: BaseSignalClass, value: Any) -> None:
         self._value = value
-
-    value = property(get_value, set_value)
 
 
 # System classes
@@ -1296,10 +1319,65 @@ class MediumHumidAir(BaseStateClass):
     @property
     @abstractmethod
     def w(self: BaseStateClass) -> np.float64:
-        """Humidity ratio.
+        """Humidity ratio in kg/kg.
 
         Returns:
-            np.float64: Humidity ratio
+            np.float64: Humidity ratio in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_gaseous(self: BaseStateClass) -> np.float64:
+        """Humidity ratio of only gaseous water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only gaseous water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_liquid(self: BaseStateClass) -> np.float64:
+        """Humidity ratio of only liquid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only liquid water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_solid(self: BaseStateClass) -> np.float64:
+        """Humidity ratio of only solid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only solid water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def ws(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio at saturation condition.
+
+        Returns:
+            np.float64: Humidity ratio at saturation condition
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def phi(self: MediumHumidAir) -> np.float64:
+        """Relative humidity.
+
+        Returns:
+            np.float64: Relative humidity
 
         """
         ...
@@ -1334,6 +1412,36 @@ class MediumHumidAir(BaseStateClass):
     ) -> None:
         ...
 
+    @abstractmethod
+    def set_pTphi(
+        self: BaseStateClass, p: np.float64, T: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_phphi(
+        self: BaseStateClass, p: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Thphi(
+        self: BaseStateClass, T: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_psphi(
+        self: BaseStateClass, p: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tsphi(
+        self: BaseStateClass, T: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
 
 # Signal classes
 class SignalBoolean(BaseSignalClass):
@@ -1350,8 +1458,7 @@ class SignalBoolean(BaseSignalClass):
         Init function of the class.
 
         """
-        # Signal parameters
-        self._value = value
+        super().__init__(value=value)
 
     def copy(self: SignalBoolean) -> SignalBoolean:
         """Copy the BaseSignalClass object.
@@ -1361,10 +1468,12 @@ class SignalBoolean(BaseSignalClass):
         """
         return SignalBoolean(self._value)
 
-    def get_value(self: SignalBoolean) -> np.bool8:
+    @property
+    def value(self: SignalBoolean) -> np.bool8:
         return self._value
 
-    def set_value(self: SignalBoolean, value: np.bool8) -> None:
+    @value.setter
+    def value(self: SignalBoolean, value: np.bool8) -> None:
         self._value = value
 
 
@@ -1382,8 +1491,7 @@ class SignalInteger(BaseSignalClass):
         Init function of the class.
 
         """
-        # Signal parameters
-        self._value = value
+        super().__init__(value=value)
 
     def copy(self: SignalInteger) -> SignalInteger:
         """Copy the BaseSignalClass object.
@@ -1393,10 +1501,12 @@ class SignalInteger(BaseSignalClass):
         """
         return SignalInteger(self._value)
 
-    def get_value(self: SignalInteger) -> np.int64:
+    @property
+    def value(self: SignalInteger) -> np.int64:
         return self._value
 
-    def set_value(self: SignalInteger, value: np.int64) -> None:
+    @value.setter
+    def value(self: SignalInteger, value: np.int64) -> None:
         self._value = value
 
 
@@ -1414,8 +1524,7 @@ class SignalFloat(BaseSignalClass):
         Init function of the class.
 
         """
-        # Signal parameters
-        self._value = value
+        super().__init__(value=value)
 
     def copy(self: SignalFloat) -> SignalFloat:
         """Copy the BaseSignalClass object.
@@ -1425,10 +1534,12 @@ class SignalFloat(BaseSignalClass):
         """
         return SignalFloat(self._value)
 
-    def get_value(self: SignalFloat) -> np.float64:
+    @property
+    def value(self: SignalFloat) -> np.float64:
         return self._value
 
-    def set_value(self: SignalFloat, value: np.float64) -> None:
+    @value.setter
+    def value(self: SignalFloat, value: np.float64) -> None:
         self._value = value
 
 
@@ -1446,8 +1557,7 @@ class SignalComplex(BaseSignalClass):
         Init function of the class.
 
         """
-        # Signal parameters
-        self._value = value
+        super().__init__(value=value)
 
     def copy(self: SignalComplex) -> SignalComplex:
         """Copy the BaseSignalClass object.
@@ -1457,10 +1567,12 @@ class SignalComplex(BaseSignalClass):
         """
         return SignalComplex(self._value)
 
-    def get_value(self: SignalComplex) -> np.complex128:
+    @property
+    def value(self: SignalComplex) -> np.complex128:
         return self._value
 
-    def set_value(self: SignalComplex, value: np.complex128) -> None:
+    @value.setter
+    def value(self: SignalComplex, value: np.complex128) -> None:
         self._value = value
 
 

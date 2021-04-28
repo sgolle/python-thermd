@@ -14,9 +14,9 @@ from thermd.core import (
     BaseStateClass,
     # MediumBase,
     # MediumHumidAir,
-    SignalFloat,
 )
 from thermd.fluid.core import BaseFluidOneInletTwoOutlets
+from thermd.media.coolprop import CoolPropFluid, CoolPropPureFluids, MediumCoolProp
 from thermd.helper import get_logger
 
 # Initialize global logger
@@ -42,19 +42,34 @@ class SeparatorWater(BaseFluidOneInletTwoOutlets):
         Init function of the class.
 
         """
-        super().__init__(name=name, state0=state0, signal0=SignalFloat(value=state0.p))
+        super().__init__(name=name, state0=state0)
+
+        # Separator parameters
+        self._eta = eta
+
+        # Set water outlet state
+        state_water = MediumCoolProp.from_pT(
+            p=state0.p,
+            T=state0.T,
+            fluid=CoolPropFluid.new_pure_fluid(fluid=CoolPropPureFluids.WATER),
+        )
+        self._ports[self._port_b2_name].state = state_water
 
     def check_self(self: SeparatorWater) -> bool:
         return True
 
     def equation(self: SeparatorWater):
         # Stop criterions
-        self._last_hmass = self._ports[self._port_b_name].state.hmass
-        self._last_m_flow = self._ports[self._port_b_name].state.m_flow
-        self._last_signal_value = self._ports[self._port_d_name].signal.value
+        self._last_hmass = self._ports[self._port_a_name].state.hmass
+        self._last_m_flow = self._ports[self._port_a_name].state.m_flow
 
         # New state
-        self._ports[self._port_b_name].state = self._ports[self._port_a_name].state
+        ws = self._ports[self._port_a_name].state.ws
+
+        if self._ports[self._port_a_name].state.w >= ws:
+            self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
+        else:
+            self._ports[self._port_b1_name].state = self._ports[self._port_a_name].state
 
         # New Signal
         self._ports[self._port_d_name].signal.value = self._ports[
