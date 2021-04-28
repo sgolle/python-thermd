@@ -1,3 +1,3 @@
-# Thermd Python Library for 1D Thermodynamic System Simulation
+# Thermd Python Library for Thermodynamic System Simulation
 
-**EXPERIMENTAL/ALPHA**
+**EXPERIMENTAL/PRE-ALPHA**
