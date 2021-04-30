@@ -1462,7 +1462,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             np.float64: Relative humidity
 
         """
-        if self.ws >= self._w:  # under-saturated
+        if self.ws > self._w:  # under-saturated
             phi = HAPropsSI("R", "T", self._T, "P", self._p, "W", self._w)
 
         else:  # saturated
