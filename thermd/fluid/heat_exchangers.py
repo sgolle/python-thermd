@@ -50,7 +50,7 @@ class HXMixin:
                 "Must be MediumBase or MediumHumidAir.",
                 state.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         return W
 
@@ -238,7 +238,7 @@ class HeatSinkSource(BaseFluidOneInletOneOutlet):
                 "Must be MediumBase or MediumHumidAir.",
                 self._ports[self._port_a_name].state.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         # New mass flow
         self._ports[self._port_b_name].state.m_flow = self._ports[
@@ -316,7 +316,7 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
                 "Must be MediumBase or MediumHumidAir.",
                 state1_in.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         # New state fluid 2
         if isinstance(state2_in, MediumBase):
@@ -335,7 +335,7 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
                 "Must be MediumBase or MediumHumidAir.",
                 state2_in.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         return state1_out, state2_out
 
@@ -370,7 +370,7 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
                 "Must be MediumBase or MediumHumidAir.",
                 state1_in.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         # New state fluid 2
         if isinstance(state2_in, MediumBase):
@@ -389,7 +389,7 @@ class HXSimple(BaseFluidTwoInletsTwoOutlets, HXMixin):
                 "Must be MediumBase or MediumHumidAir.",
                 state2_in.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         return state1_out, state2_out
 

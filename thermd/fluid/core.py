@@ -17,7 +17,7 @@ from thermd.core import (
     MediumHumidAir,
     ModelResult,
     PortSignal,
-    PortState,
+    PortFluid,
     PortTypes,
     SignalFloat,
 )
@@ -48,8 +48,8 @@ class BaseFluidOneInlet(BaseModelClass):
         # Ports
         self._port_a_name = self.name + "_port_a"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
 
@@ -58,7 +58,7 @@ class BaseFluidOneInlet(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_a(self: BaseFluidOneInlet) -> PortState:
+    def port_a(self: BaseFluidOneInlet) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
@@ -109,8 +109,8 @@ class BaseFluidOneOutlet(BaseModelClass):
         # Ports
         self._port_b_name = self.name + "_port_b"
         self.add_port(
-            PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
 
@@ -119,7 +119,7 @@ class BaseFluidOneOutlet(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_b(self: BaseFluidOneOutlet) -> PortState:
+    def port_b(self: BaseFluidOneOutlet) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property
@@ -171,13 +171,13 @@ class BaseFluidOneInletOneOutlet(BaseModelClass):
         self._port_a_name = self.name + "_port_a"
         self._port_b_name = self.name + "_port_b"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
 
@@ -186,11 +186,11 @@ class BaseFluidOneInletOneOutlet(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_a(self: BaseFluidOneInletOneOutlet) -> PortState:
+    def port_a(self: BaseFluidOneInletOneOutlet) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b(self: BaseFluidOneInletOneOutlet) -> PortState:
+    def port_b(self: BaseFluidOneInletOneOutlet) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property
@@ -281,30 +281,30 @@ class BaseFluidTwoInletsTwoOutlets(BaseModelClass):
         self._port_b1_name = self.name + "_port_b1"
         self._port_b2_name = self.name + "_port_b2"
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_a1_name,
-                port_type=PortTypes.STATE_INLET,
+                port_type=PortTypes.FLUID_INLET,
                 state=state0_1,
             )
         )
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_a2_name,
-                port_type=PortTypes.STATE_INLET,
+                port_type=PortTypes.FLUID_INLET,
                 state=state0_2,
             )
         )
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_b1_name,
-                port_type=PortTypes.STATE_OUTLET,
+                port_type=PortTypes.FLUID_OUTLET,
                 state=state0_1,
             )
         )
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_b2_name,
-                port_type=PortTypes.STATE_OUTLET,
+                port_type=PortTypes.FLUID_OUTLET,
                 state=state0_2,
             )
         )
@@ -314,19 +314,19 @@ class BaseFluidTwoInletsTwoOutlets(BaseModelClass):
         self._last_m_flow = state0_1.m_flow
 
     @property
-    def port_a1(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+    def port_a1(self: BaseFluidTwoInletsTwoOutlets) -> PortFluid:
         return self._ports[self._port_a1_name]
 
     @property
-    def port_a2(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+    def port_a2(self: BaseFluidTwoInletsTwoOutlets) -> PortFluid:
         return self._ports[self._port_a2_name]
 
     @property
-    def port_b1(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+    def port_b1(self: BaseFluidTwoInletsTwoOutlets) -> PortFluid:
         return self._ports[self._port_b1_name]
 
     @property
-    def port_b2(self: BaseFluidTwoInletsTwoOutlets) -> PortState:
+    def port_b2(self: BaseFluidTwoInletsTwoOutlets) -> PortFluid:
         return self._ports[self._port_b2_name]
 
     @property
@@ -450,13 +450,13 @@ class BaseFluidOneInletOneOutletOneSignalInlet(BaseModelClass):
         self._port_b_name = self.name + "_port_b"
         self._port_c_name = self.name + "_port_c"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
@@ -473,11 +473,11 @@ class BaseFluidOneInletOneOutletOneSignalInlet(BaseModelClass):
         self._last_signal_value = signal0.value
 
     @property
-    def port_a(self: BaseFluidOneInletOneOutletOneSignalInlet) -> PortState:
+    def port_a(self: BaseFluidOneInletOneOutletOneSignalInlet) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b(self: BaseFluidOneInletOneOutletOneSignalInlet) -> PortState:
+    def port_b(self: BaseFluidOneInletOneOutletOneSignalInlet) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property
@@ -582,13 +582,13 @@ class BaseFluidOneInletOneOutletOneSignalOutlet(BaseModelClass):
         self._port_b_name = self.name + "_port_b"
         self._port_d_name = self.name + "_port_d"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
@@ -605,11 +605,11 @@ class BaseFluidOneInletOneOutletOneSignalOutlet(BaseModelClass):
         self._last_signal_value = signal0.value
 
     @property
-    def port_a(self: BaseFluidOneInletOneOutletOneSignalOutlet) -> PortState:
+    def port_a(self: BaseFluidOneInletOneOutletOneSignalOutlet) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b(self: BaseFluidOneInletOneOutletOneSignalOutlet) -> PortState:
+    def port_b(self: BaseFluidOneInletOneOutletOneSignalOutlet) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property
@@ -715,13 +715,13 @@ class BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet(BaseModelClass):
         self._port_c_name = self.name + "_port_c"
         self._port_d_name = self.name + "_port_d"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
@@ -747,13 +747,13 @@ class BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet(BaseModelClass):
     @property
     def port_a(
         self: BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet,
-    ) -> PortState:
+    ) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
     def port_b(
         self: BaseFluidOneInletOneOutletOneSignalInletOneSignalOutlet,
-    ) -> PortState:
+    ) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property
@@ -868,18 +868,18 @@ class BaseFluidOneInletTwoOutlets(BaseModelClass):
         self._port_b1_name = self.name + "_port_b1"
         self._port_b2_name = self.name + "_port_b2"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b1_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b1_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b2_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b2_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
 
@@ -888,15 +888,15 @@ class BaseFluidOneInletTwoOutlets(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_a(self: BaseFluidOneInletTwoOutlets) -> PortState:
+    def port_a(self: BaseFluidOneInletTwoOutlets) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b1(self: BaseFluidOneInletTwoOutlets) -> PortState:
+    def port_b1(self: BaseFluidOneInletTwoOutlets) -> PortFluid:
         return self._ports[self._port_b1_name]
 
     @property
-    def port_b2(self: BaseFluidOneInletTwoOutlets) -> PortState:
+    def port_b2(self: BaseFluidOneInletTwoOutlets) -> PortFluid:
         return self._ports[self._port_b2_name]
 
     @property
@@ -1001,23 +1001,23 @@ class BaseFluidOneInletThreeOutlets(BaseModelClass):
         self._port_b2_name = self.name + "_port_b2"
         self._port_b3_name = self.name + "_port_b3"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b1_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b1_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b2_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b2_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b3_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b3_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
 
@@ -1026,19 +1026,19 @@ class BaseFluidOneInletThreeOutlets(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_a(self: BaseFluidOneInletThreeOutlets) -> PortState:
+    def port_a(self: BaseFluidOneInletThreeOutlets) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b1(self: BaseFluidOneInletThreeOutlets) -> PortState:
+    def port_b1(self: BaseFluidOneInletThreeOutlets) -> PortFluid:
         return self._ports[self._port_b1_name]
 
     @property
-    def port_b2(self: BaseFluidOneInletThreeOutlets) -> PortState:
+    def port_b2(self: BaseFluidOneInletThreeOutlets) -> PortFluid:
         return self._ports[self._port_b2_name]
 
     @property
-    def port_b3(self: BaseFluidOneInletThreeOutlets) -> PortState:
+    def port_b3(self: BaseFluidOneInletThreeOutlets) -> PortFluid:
         return self._ports[self._port_b3_name]
 
     @property
@@ -1161,28 +1161,28 @@ class BaseFluidOneInletFourOutlets(BaseModelClass):
         self._port_b3_name = self.name + "_port_b3"
         self._port_b4_name = self.name + "_port_b4"
         self.add_port(
-            PortState(
-                name=self._port_a_name, port_type=PortTypes.STATE_INLET, state=state0,
+            PortFluid(
+                name=self._port_a_name, port_type=PortTypes.FLUID_INLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b1_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b1_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b2_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b2_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b3_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b3_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
         self.add_port(
-            PortState(
-                name=self._port_b4_name, port_type=PortTypes.STATE_OUTLET, state=state0,
+            PortFluid(
+                name=self._port_b4_name, port_type=PortTypes.FLUID_OUTLET, state=state0,
             )
         )
 
@@ -1191,23 +1191,23 @@ class BaseFluidOneInletFourOutlets(BaseModelClass):
         self._last_m_flow = state0.m_flow
 
     @property
-    def port_a(self: BaseFluidOneInletFourOutlets) -> PortState:
+    def port_a(self: BaseFluidOneInletFourOutlets) -> PortFluid:
         return self._ports[self._port_a_name]
 
     @property
-    def port_b1(self: BaseFluidOneInletFourOutlets) -> PortState:
+    def port_b1(self: BaseFluidOneInletFourOutlets) -> PortFluid:
         return self._ports[self._port_b1_name]
 
     @property
-    def port_b2(self: BaseFluidOneInletFourOutlets) -> PortState:
+    def port_b2(self: BaseFluidOneInletFourOutlets) -> PortFluid:
         return self._ports[self._port_b2_name]
 
     @property
-    def port_b3(self: BaseFluidOneInletFourOutlets) -> PortState:
+    def port_b3(self: BaseFluidOneInletFourOutlets) -> PortFluid:
         return self._ports[self._port_b3_name]
 
     @property
-    def port_b4(self: BaseFluidOneInletFourOutlets) -> PortState:
+    def port_b4(self: BaseFluidOneInletFourOutlets) -> PortFluid:
         return self._ports[self._port_b4_name]
 
     @property
@@ -1348,23 +1348,23 @@ class BaseFluidTwoInletsOneOutlet(BaseModelClass):
         self._port_a2_name = self.name + "_port_a2"
         self._port_b_name = self.name + "_port_b"
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_a1_name,
-                port_type=PortTypes.STATE_INLET,
+                port_type=PortTypes.FLUID_INLET,
                 state=state0_1,
             )
         )
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_a2_name,
-                port_type=PortTypes.STATE_INLET,
+                port_type=PortTypes.FLUID_INLET,
                 state=state0_2,
             )
         )
         self.add_port(
-            PortState(
+            PortFluid(
                 name=self._port_b_name,
-                port_type=PortTypes.STATE_OUTLET,
+                port_type=PortTypes.FLUID_OUTLET,
                 state=state0_1,
             )
         )
@@ -1374,15 +1374,15 @@ class BaseFluidTwoInletsOneOutlet(BaseModelClass):
         self._last_m_flow = state0_1.m_flow
 
     @property
-    def port_a1(self: BaseFluidTwoInletsOneOutlet) -> PortState:
+    def port_a1(self: BaseFluidTwoInletsOneOutlet) -> PortFluid:
         return self._ports[self._port_a1_name]
 
     @property
-    def port_a2(self: BaseFluidTwoInletsOneOutlet) -> PortState:
+    def port_a2(self: BaseFluidTwoInletsOneOutlet) -> PortFluid:
         return self._ports[self._port_a2_name]
 
     @property
-    def port_b(self: BaseFluidTwoInletsOneOutlet) -> PortState:
+    def port_b(self: BaseFluidTwoInletsOneOutlet) -> PortFluid:
         return self._ports[self._port_b_name]
 
     @property

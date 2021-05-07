@@ -89,7 +89,7 @@ class PumpSimple(BaseFluidOneInletOneOutlet):
                 "Wrong medium class in pump class definition: %s. Must be MediumBase.",
                 state0.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         # Pump parameters
         self._dp = dp

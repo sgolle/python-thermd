@@ -32,13 +32,23 @@ class NodeTypes(Enum):
     PORT = auto()
 
 
+class ConnectionTypes(Enum):
+    INTERNAL = auto()
+    FLUID = auto()
+    SIGNAL = auto()
+    # THERMAL = auto()
+
+
 class PortTypes(Enum):
-    STATE_INLET = auto()
-    STATE_OUTLET = auto()
-    STATE_INLET_OUTLET = auto()
+    FLUID_INLET = auto()
+    FLUID_OUTLET = auto()
+    FLUID_INLET_OUTLET = auto()
     SIGNAL_INLET = auto()
     SIGNAL_OUTLET = auto()
     SIGNAL_INLET_OUTLET = auto()
+    # THERMAL_INLET = auto()
+    # THERMAL_OUTLET = auto()
+    # THERMAL_INLET_OUTLET = auto()
 
 
 class StatePhases(Enum):
@@ -127,7 +137,7 @@ class BlockResult(BaseResultClass):
     signals: Optional[Dict[str, BaseSignalClass]]
 
 
-# Base classes
+# System classes
 class BaseSystemClass(ABC):
     """Base class of the physical system.
 
@@ -208,7 +218,7 @@ class BaseSystemClass(ABC):
 
         if node_class.name in self._models:
             logger.error("Model name already in use: %s", node_class.name)
-            raise SystemExit
+            raise Exception
 
         self._network.add_node(
             node_class.name, node_type=NodeTypes.MODEL, node_class=node_class
@@ -224,18 +234,22 @@ class BaseSystemClass(ABC):
             self._ports[node_class.name].append(port.name)
 
             if (
-                port.port_type == PortTypes.STATE_INLET
+                port.port_type == PortTypes.FLUID_INLET
                 or port.port_type == PortTypes.SIGNAL_INLET
             ):
-                self._network.add_edge(port.name, node_class.name)
+                self._network.add_edge(
+                    port.name, node_class.name, connection_type=ConnectionTypes.INTERNAL
+                )
             elif (
-                port.port_type == PortTypes.STATE_OUTLET
+                port.port_type == PortTypes.FLUID_OUTLET
                 or port.port_type == PortTypes.SIGNAL_OUTLET
             ):
-                self._network.add_edge(node_class.name, port.name)
+                self._network.add_edge(
+                    node_class.name, port.name, connection_type=ConnectionTypes.INTERNAL
+                )
             else:
-                logger.error("Wrong port function: %s", port.port_type)
-                raise SystemExit
+                logger.error("Wrong port type: %s", port.port_type)
+                raise Exception
 
     def add_block(
         self: BaseSystemClass, node_class: BaseBlockClass,
@@ -245,7 +259,7 @@ class BaseSystemClass(ABC):
 
         if node_class.name in self._blocks:
             logger.error("Block name already in use: %s", node_class.name)
-            raise SystemExit
+            raise Exception
 
         self._network.add_node(
             node_class.name, node_type=NodeTypes.BLOCK, node_class=node_class
@@ -260,57 +274,55 @@ class BaseSystemClass(ABC):
             self._network.add_node(port.name, node_type=NodeTypes.PORT)
             self._ports[node_class.name].append(port.name)
 
-            if (
-                port.port_type == PortTypes.STATE_INLET
-                or port.port_type == PortTypes.SIGNAL_INLET
-            ):
-                self._network.add_edge(port.name, node_class.name)
-            elif (
-                port.port_type == PortTypes.STATE_OUTLET
-                or port.port_type == PortTypes.SIGNAL_OUTLET
-            ):
-                self._network.add_edge(node_class.name, port.name)
+            if port.port_type == PortTypes.SIGNAL_INLET:
+                self._network.add_edge(
+                    port.name, node_class.name, connection_type=ConnectionTypes.INTERNAL
+                )
+            elif port.port_type == PortTypes.SIGNAL_OUTLET:
+                self._network.add_edge(
+                    node_class.name, port.name, connection_type=ConnectionTypes.INTERNAL
+                )
             else:
-                logger.error("Wrong port function: %s", port.port_type)
-                raise SystemExit
+                logger.error("Wrong port type: %s", port.port_type)
+                raise Exception
 
     def connect(
         self: BaseSystemClass, port1: BasePortClass, port2: BasePortClass,
     ):
-        if port1.__class__.__name__ == port2.__class__.__name__:
-            if (
-                port1.port_type
-                in [
-                    PortTypes.STATE_OUTLET,
-                    PortTypes.STATE_INLET_OUTLET,
-                    PortTypes.SIGNAL_OUTLET,
-                    PortTypes.SIGNAL_INLET_OUTLET,
-                ]
-            ) and (
-                port2.port_type
-                in [
-                    PortTypes.STATE_INLET,
-                    PortTypes.STATE_INLET_OUTLET,
-                    PortTypes.SIGNAL_INLET,
-                    PortTypes.SIGNAL_INLET_OUTLET,
-                ]
-            ):
+        if self._network.has_edge(port1.name, port2.name):
+            logger.error(
+                "Connection between %s and %s already exists.", port1.name, port2.name
+            )
+            raise Exception
 
-                self._network.add_edge(port1.name, port2.name)
-
-            else:
-                logger.error(
-                    (
-                        "First port must be outlet and second port must be "
-                        "inlet port of associated models/blocks: %s <-> %s"
-                    ),
-                    port1.name,
-                    port2.name,
-                )
-                raise SystemExit
-        else:
+        if port1.__class__.__name__ != port2.__class__.__name__:
             logger.error("Port types not compatible: %s <-> %s", port1.name, port2.name)
-            raise SystemExit
+            raise Exception
+
+        if (
+            port1.port_type == PortTypes.FLUID_OUTLET
+            and port2.port_type == PortTypes.FLUID_INLET
+        ):
+            self._network.add_edge(
+                port1.name, port2.name, connection_type=ConnectionTypes.FLUID,
+            )
+        elif (
+            port1.port_type == PortTypes.SIGNAL_OUTLET
+            and port2.port_type == PortTypes.SIGNAL_INLET
+        ):
+            self._network.add_edge(
+                port1.name, port2.name, connection_type=ConnectionTypes.SIGNAL,
+            )
+        else:
+            logger.error(
+                (
+                    "First port must be outlet and second port must be "
+                    "inlet port of associated models/blocks: %s <-> %s"
+                ),
+                port1.name,
+                port2.name,
+            )
+            raise Exception
 
     def check_self(self: BaseSystemClass):
         # Check all models
@@ -400,7 +412,7 @@ class BaseSystemClass(ABC):
                                 model_name,
                                 "Model",
                                 port_name,
-                                str(state.fluid_name),
+                                str(state.fluid_full_name),
                                 str(state.T),
                                 str(state.p),
                                 str(state.hmass),
@@ -438,6 +450,240 @@ class BaseSystemClass(ABC):
         ...
 
 
+class SystemSimpleIterative(BaseSystemClass):
+    """Class of a simple system.
+
+    The simple system is the main starting point for all physical systems and
+    represents an exemplary system class, which can be modified further.
+
+    """
+
+    def __init__(self: SystemSimpleIterative, **kwargs):
+        """Initialize simple system class.
+
+        Init function of the simple system class.
+
+        """
+        super().__init__(**kwargs)
+
+        # Additional system parameter
+        # self._start_node: List[str] = list()
+        # self._end_node: List[str] = list()
+        self._simulation_nodes: List[str] = list()
+
+        # if "start_node" in kwargs:
+        #     self._start_node = kwargs["start_node"]
+
+        # if kwargs["start_node"] is None:
+        #     kwargs["start_node"] = self._models[0]
+
+    def stop_criterion(self: SystemSimpleIterative) -> bool:
+        # Iteration counter
+        if self._iteration_counter == 0:
+            self._iteration_counter += np.uint16(1)
+            return True
+        self._iteration_counter += np.uint16(1)
+
+        if self._iteration_counter > self._max_iteration_counter:
+            return False
+
+        # Stop criterions of models and blocks
+        for node_name in self._simulation_nodes:
+            if self.network.nodes[node_name]["node_type"] == NodeTypes.MODEL:
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_energy
+                    )
+                    > self._stop_criterion_energy
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_momentum
+                    )
+                    > self._stop_criterion_momentum
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name]["node_class"].stop_criterion_mass
+                    )
+                    > self._stop_criterion_mass
+                ):
+                    return True
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_signal
+                    )
+                    > self._stop_criterion_signal
+                ):
+                    return True
+            elif self.network.nodes[node_name]["node_type"] == NodeTypes.BLOCK:
+                if (
+                    np.abs(
+                        self._network.nodes[node_name][
+                            "node_class"
+                        ].stop_criterion_signal
+                    )
+                    > self._stop_criterion_signal
+                ):
+                    return True
+            else:
+                logger.error(
+                    "Node type in simulation nodes not defined: %s.",
+                    self.network.nodes[node_name]["node_type"].value,
+                )
+                raise Exception
+
+        return False
+
+    def f_connection_fluid(
+        self: SystemSimpleIterative, state1: BaseStateClass, state2: BaseStateClass
+    ):
+        if isinstance(state1, MediumBase) and isinstance(state2, MediumBase):
+            if state1.fluid_name != state2.fluid_name:
+                logger.error("States of connected ports do not have the same fluid.")
+                raise Exception
+            state2.set_ph(p=state1.p, h=state1.hmass)
+        elif isinstance(state1, MediumHumidAir) and isinstance(state2, MediumHumidAir):
+            state2.set_pTw(p=state1.p, T=state1.T, w=state1.w)
+        else:
+            logger.error("States of connected ports do not have the same medium class.")
+            raise Exception
+
+    def f_connection_signal(
+        self: SystemSimpleIterative, signal1: BaseSignalClass, signal2: BaseSignalClass
+    ):
+        if signal1.__class__.__name__ == signal2.__class__.__name__:
+            signal2.value = signal1.value
+        else:
+            logger.error(
+                "Signals of connected ports do not have the same signal class."
+            )
+            raise Exception
+
+    def pre_solve(self: SystemSimpleIterative):
+        self.check_self()
+        self._simulation_nodes = self._models + self._blocks
+
+    def solve(self: SystemSimpleIterative) -> SystemResult:
+        logger.info("Start solver.")
+        logger.info("Pre-solve.")
+        self.pre_solve()
+
+        logger.info("Solve.")
+
+        try:
+            while self.stop_criterion():
+                logger.info(
+                    "Iteration count: %s of %s",
+                    str(self._iteration_counter),
+                    str(self._max_iteration_counter),
+                )
+                for node_name in self._simulation_nodes:
+                    logger.debug("Calculate node %s", node_name)
+
+                    self._network.nodes[node_name]["node_class"].equation()
+
+                    for outlet_port_name in self._network.successors(node_name):
+
+                        if isinstance(
+                            self._network.nodes[node_name]["node_class"].ports[
+                                outlet_port_name
+                            ],
+                            PortFluid,
+                        ):
+                            if (
+                                self._network.nodes[node_name]["node_class"]
+                                .ports[outlet_port_name]
+                                .state.m_flow
+                                <= 0.0
+                            ):
+                                continue
+
+                        for connected_port_name in self._network.successors(
+                            outlet_port_name
+                        ):
+                            for successor_node_name in self._network.successors(
+                                connected_port_name
+                            ):
+                                logger.debug(
+                                    "Set port %s of node %s with port %s of node %s",
+                                    connected_port_name,
+                                    successor_node_name,
+                                    outlet_port_name,
+                                    node_name,
+                                )
+
+                                if (
+                                    self._network[outlet_port_name][
+                                        connected_port_name
+                                    ]["connection_type"]
+                                    == ConnectionTypes.FLUID
+                                ):
+                                    self.f_connection_fluid(
+                                        self._network.nodes[node_name]["node_class"]
+                                        .ports[outlet_port_name]
+                                        .state,
+                                        self._network.nodes[successor_node_name][
+                                            "node_class"
+                                        ]
+                                        .ports[connected_port_name]
+                                        .state,
+                                    )
+                                elif (
+                                    self._network[outlet_port_name][
+                                        connected_port_name
+                                    ]["connection_type"]
+                                    == ConnectionTypes.SIGNAL
+                                ):
+                                    self.f_connection_signal(
+                                        self._network.nodes[node_name]["node_class"]
+                                        .ports[outlet_port_name]
+                                        .signal,
+                                        self._network.nodes[successor_node_name][
+                                            "node_class"
+                                        ]
+                                        .ports[connected_port_name]
+                                        .signal,
+                                    )
+
+        except BaseException as e:
+            logger.error("Solver failed.")
+            logger.exception("Error code: %s", str(e))
+
+            models, blocks = self.get_node_results()
+            self._result = SystemResult.from_error(
+                models=models, blocks=blocks, nit=self._iteration_counter
+            )
+            return self._result
+
+        # Post solve
+        logger.info("Post-solve.")
+
+        models, blocks = self.get_node_results()
+
+        if self._iteration_counter > self._max_iteration_counter:
+            logger.info("Solver did not converge.")
+            self._result = SystemResult.from_convergence(
+                models=models, blocks=blocks, nit=self._iteration_counter
+            )
+            return self._result
+
+        logger.info("Solver finished successfully.")
+        self._result = SystemResult.from_success(
+            models=models, blocks=blocks, nit=self._iteration_counter
+        )
+        return self._result
+
+
+# Model classes
 class BaseModelClass(ABC):
     """Base class of the physical model/ component.
 
@@ -454,7 +700,7 @@ class BaseModelClass(ABC):
         """
         # Class properties
         self._name = name
-        self._ports: Dict[str, Union[PortState, PortSignal]] = dict()
+        self._ports: Dict[str, Union[PortFluid, PortSignal]] = dict()
 
         # Balances
         self._energy_balance = np.float64(0.0)
@@ -466,7 +712,7 @@ class BaseModelClass(ABC):
         return self._name
 
     @property
-    def ports(self: BaseModelClass) -> Dict[str, Union[PortState, PortSignal]]:
+    def ports(self: BaseModelClass) -> Dict[str, Union[PortFluid, PortSignal]]:
         return self._ports
 
     @property
@@ -489,7 +735,7 @@ class BaseModelClass(ABC):
     def stop_criterion_signal(self: BaseModelClass) -> np.float64:
         ...
 
-    def add_port(self: BaseModelClass, port: Union[PortState, PortSignal]) -> None:
+    def add_port(self: BaseModelClass, port: Union[PortFluid, PortSignal]) -> None:
         self._ports[port.name] = port
 
     # def get_port_attr(
@@ -497,9 +743,9 @@ class BaseModelClass(ABC):
     # ) -> Union[BaseStateClass, BaseSignalClass]:
     #     if port_name not in self._ports:
     #         logger.error("Unknown port name: %s.", port_name)
-    #         raise SystemExit
+    #         raise Exception
 
-    #     if isinstance(self._ports[port_name], PortState):
+    #     if isinstance(self._ports[port_name], PortFluid):
     #         return self._ports[port_name].state
     #     elif isinstance(self._ports[port_name], PortSignal):
     #         return self._ports[port_name].signal
@@ -507,7 +753,7 @@ class BaseModelClass(ABC):
     #         logger.error(
     #             "Unknown port class: %s.", self._ports[port_name].__class__.__name__
     #         )
-    #         raise SystemExit
+    #         raise Exception
 
     # def set_port_attr(
     #     self: BaseModelClass,
@@ -515,7 +761,7 @@ class BaseModelClass(ABC):
     #     port_attr: Union[BaseStateClass, BaseSignalClass],
     # ) -> None:
     #     if port_name in self._ports:
-    #         if isinstance(self._ports[port_name], PortState) and isinstance(
+    #         if isinstance(self._ports[port_name], PortFluid) and isinstance(
     #             port_attr, BaseStateClass
     #         ):
     #             self._ports[port_name].state = port_attr
@@ -529,11 +775,11 @@ class BaseModelClass(ABC):
     #                 self._ports[port_name].__class__.__name__,
     #                 port_attr.__class__.__name__,
     #             )
-    #             raise SystemExit
+    #             raise Exception
 
     #     else:
     #         logger.error("Unknown port name: %s.", port_name)
-    #         raise SystemExit
+    #         raise Exception
 
     def check_state(
         self: BaseModelClass,
@@ -584,6 +830,7 @@ class BaseModelClass(ABC):
         ...
 
 
+# Block classes
 class BaseBlockClass(ABC):
     """Base class of the mathematical block.
 
@@ -621,7 +868,7 @@ class BaseBlockClass(ABC):
     # def get_port_attr(self: BaseBlockClass, port_name: str) -> BaseSignalClass:
     #     if port_name not in self._ports:
     #         logger.error("Unknown port name: %s.", port_name)
-    #         raise SystemExit
+    #         raise Exception
 
     #     return self._ports[port_name].signal
 
@@ -642,11 +889,11 @@ class BaseBlockClass(ABC):
     #                 self._ports[port_name].__class__.__name__,
     #                 port_attr.__class__.__name__,
     #             )
-    #             raise SystemExit
+    #             raise Exception
 
     #     else:
     #         logger.error("Unknown port name: %s.", port_name)
-    #         raise SystemExit
+    #         raise Exception
 
     @abstractmethod
     def check_self(self: BaseBlockClass) -> bool:
@@ -661,6 +908,32 @@ class BaseBlockClass(ABC):
         ...
 
 
+# Connection classes
+# class BaseConnectionClass(ABC):
+#     """Base class of the connection class.
+
+#     The abstract base class of the connection class implements the link between
+#     ports with the exchange of the variables (states, signals etc).
+
+#     """
+
+#     @abstractmethod
+#     def equation(self: BaseConnectionClass):
+#         ...
+
+# class ConnectionFluid(ABC):
+#     """Fluid connection class.
+
+#     The fluid connection class implements the link between
+#     fluid ports with the exchange of the states.
+
+#     """
+
+#     def equation(self: BaseConnectionClass):
+#         ...
+
+
+# Port classes
 class BasePortClass(ABC):
     """Base class of the ports.
 
@@ -689,6 +962,67 @@ class BasePortClass(ABC):
         return self._port_type
 
 
+class PortFluid(BasePortClass):
+    """Class of a state port.
+
+    The state port is a interface in a model and can connect different
+    models with a fluid connection, which links the thermodynamic states.
+
+    """
+
+    def __init__(
+        self: PortFluid, name: str, port_type: PortTypes, state: BaseStateClass
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_type=port_type)
+
+        # Class properties
+        self._state = state.copy()
+
+    @property
+    def state(self: PortFluid) -> BaseStateClass:
+        return self._state
+
+    # @state.setter
+    # def state(self: PortFluid, state: BaseStateClass) -> None:
+    #     self._state = state.copy()
+
+
+class PortSignal(BasePortClass):
+    """Class of a signal port.
+
+    The signal port is a interface in a model and can connect different
+    models with a signal connection, which links values. 
+
+    """
+
+    def __init__(
+        self: PortSignal, name: str, port_type: PortTypes, signal: BaseSignalClass
+    ):
+        """Initialize base port class.
+
+        Init function of the base port class.
+
+        """
+        super().__init__(name=name, port_type=port_type)
+
+        # Class properties
+        self._signal = signal.copy()
+
+    @property
+    def signal(self: PortSignal) -> BaseSignalClass:
+        return self._signal
+
+    # @signal.setter
+    # def signal(self: PortSignal, signal: BaseSignalClass) -> None:
+    #     self._signal = signal.copy()
+
+
+# State/ media classes
 class BaseStateClass(ABC):
     """Base class of the states.
 
@@ -829,11 +1163,22 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def gas_constant(self: BaseStateClass) -> np.float64:
-        """Specific gas constant in J/mol/K.
+    def R_s(self: BaseStateClass) -> np.float64:
+        """Specific gas constant in J/kg/K.
 
         Returns:
-            np.float64: Specific gas constant in J/mol/K
+            np.float64: Specific gas constant in J/kg/K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def M(self: BaseStateClass) -> np.float64:
+        """Molar mass in kg/mol.
+
+        Returns:
+            np.float64: Molar mass in kg/mol
 
         """
         ...
@@ -845,6 +1190,17 @@ class BaseStateClass(ABC):
 
         Returns:
             np.float64: Mass flow in kg/s
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def n_flow(self: BaseStateClass) -> np.float64:
+        """Amount of substance flow in mol/s.
+
+        Returns:
+            np.float64: Amount of substance flow in mol/s
 
         """
         ...
@@ -939,10 +1295,344 @@ class BaseStateClass(ABC):
 
     @property
     @abstractmethod
-    def fluid_name(self: BaseStateClass) -> str:
+    def fluid_full_name(self: BaseStateClass) -> str:
         ...
 
 
+class MediumBase(BaseStateClass):
+    """Class of pure or pseudo-pure (mixtures) media.
+
+    The medium class of pure fluids provides the API for all derived
+    medium classes with pure or pseudo-pure (mixtures) behavior, hence only 
+    two state values need to be given to define the state.
+
+    """
+
+    @property
+    @abstractmethod
+    def fluid_name(self: MediumBase) -> Any:
+        ...
+
+    @property
+    @abstractmethod
+    def Gmolar(self: MediumBase) -> np.float64:
+        """Molar specific Gibbs energy in J/mol.
+
+        Returns:
+            np.float64: Molar specific Gibbs energy in J/mol
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def Helmholtzmass(self: MediumBase) -> np.float64:
+        """Mass specific Helmholtz energy in J/kg.
+
+        Returns:
+            np.float64: Mass specific Helmholtz energy in J/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def Helmholtzmolar(self: MediumBase) -> np.float64:
+        """Molar specific Helmholtz energy in J/mol.
+
+        Returns:
+            np.float64: Molar specific Helmholtz energy in J/mol
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def p_critical(self: MediumBase) -> np.float64:
+        """Pressure at the critical point in Pa.
+
+        Returns:
+            np.float64: Pressure at the critical point in Pa
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def p_reducing(self: MediumBase) -> np.float64:
+        """Pressure at reducing point in Pa.
+
+        Returns:
+            np.float64: Pressure at reducing point in Pa
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def p_triple(self: MediumBase) -> np.float64:
+        """Pressure at triple point in Pa.
+
+        Returns:
+            np.float64: Pressure at triple point in Pa
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def rhomass_critical(self: MediumBase) -> np.float64:
+        """Mass density at critical point in kg/m**3.
+
+        Returns:
+            np.float64: Mass density at critical point in kg/m**3
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def rhomass_reducing(self: MediumBase) -> np.float64:
+        """Mass density at reducing point in kg/m**3.
+
+        Returns:
+            np.float64: Mass density at reducing point in kg/m**3
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def rhomolar_critical(self: MediumBase) -> np.float64:
+        """Molar density at critical point in mol/m**3.
+
+        Returns:
+            np.float64: Molar density at critical point in mol/m**3
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def rhomolar_reducing(self: MediumBase) -> np.float64:
+        """Molar density at reducing point in mol/m**3.
+
+        Returns:
+            np.float64: Molar density at reducing point in mol/m**3
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def surface_tension(self: MediumBase) -> np.float64:
+        """Surface tension in N/m.
+
+        Returns:
+            np.float64: Surface tension in N/m
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def T_critical(self: MediumBase) -> np.float64:
+        """Temperature at critical point in K.
+
+        Returns:
+            np.float64: Temperature at critical point in K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def T_reducing(self: MediumBase) -> np.float64:
+        """Temperature at reducing point in K.
+
+        Returns:
+            np.float64: Temperature at reducing point in K
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def T_triple(self: MediumBase) -> np.float64:
+        """Temperature at triple point in K.
+
+        Returns:
+            np.float64: Temperature at triple point in K
+
+        """
+        ...
+
+    @abstractmethod
+    def set_pT(self: MediumBase, p: np.float64, T: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_px(self: MediumBase, p: np.float64, x: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tx(self: MediumBase, T: np.float64, x: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_ph(self: MediumBase, p: np.float64, h: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Th(self: MediumBase, T: np.float64, h: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_ps(self: MediumBase, p: np.float64, s: np.float64,) -> None:
+        ...
+
+    @abstractmethod
+    def set_Ts(self: MediumBase, T: np.float64, s: np.float64,) -> None:
+        ...
+
+
+class MediumHumidAir(BaseStateClass):
+    """Class of binary mixtures media.
+
+    The medium class of binary mixtures provides the API for all derived
+    medium classes with two pure or pseudo-pure but uneven components (e. g. humid air),
+    hence three state values need to be given to define the state.
+
+    """
+
+    @property
+    @abstractmethod
+    def w(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_gaseous(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio of only gaseous water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only gaseous water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_liquid(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio of only liquid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only liquid water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def w_solid(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio of only solid water in kg/kg.
+
+        Returns:
+            np.float64: Humidity ratio of only solid water in kg/kg
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def ws(self: MediumHumidAir) -> np.float64:
+        """Humidity ratio at saturation condition.
+
+        Returns:
+            np.float64: Humidity ratio at saturation condition
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def phi(self: MediumHumidAir) -> np.float64:
+        """Relative humidity.
+
+        Returns:
+            np.float64: Relative humidity
+
+        """
+        ...
+
+    @abstractmethod
+    def set_pTw(
+        self: MediumHumidAir, p: np.float64, T: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_phw(
+        self: MediumHumidAir, p: np.float64, h: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Thw(
+        self: MediumHumidAir, T: np.float64, h: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_psw(
+        self: MediumHumidAir, p: np.float64, s: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tsw(
+        self: MediumHumidAir, T: np.float64, s: np.float64, w: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_pTphi(
+        self: MediumHumidAir, p: np.float64, T: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_phphi(
+        self: MediumHumidAir, p: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Thphi(
+        self: MediumHumidAir, T: np.float64, h: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_psphi(
+        self: MediumHumidAir, p: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def set_Tsphi(
+        self: MediumHumidAir, T: np.float64, s: np.float64, phi: np.float64
+    ) -> None:
+        ...
+
+
+# Signal classes
 class BaseSignalClass(ABC):
     """Base class of the signals.
 
@@ -978,472 +1668,6 @@ class BaseSignalClass(ABC):
         self._value = value
 
 
-# System classes
-class SystemSimpleIterative(BaseSystemClass):
-    """Class of a simple system.
-
-    The simple system is the main starting point for all physical systems and
-    represents an exemplary system class, which can be modified further.
-
-    """
-
-    def __init__(self: SystemSimpleIterative, **kwargs):
-        """Initialize simple system class.
-
-        Init function of the simple system class.
-
-        """
-        super().__init__(**kwargs)
-
-        # Additional system parameter
-        # self._start_node: List[str] = list()
-        # self._end_node: List[str] = list()
-        self._simulation_nodes: List[str] = list()
-
-        # if "start_node" in kwargs:
-        #     self._start_node = kwargs["start_node"]
-
-        # if kwargs["start_node"] is None:
-        #     kwargs["start_node"] = self._models[0]
-
-    def stop_criterion(self: SystemSimpleIterative) -> bool:
-        # Iteration counter
-        if self._iteration_counter == 0:
-            self._iteration_counter += np.uint16(1)
-            return True
-        self._iteration_counter += np.uint16(1)
-
-        if self._iteration_counter > self._max_iteration_counter:
-            return False
-
-        # Stop criterions of models and blocks
-        for node_name in self._simulation_nodes:
-            if self.network.nodes[node_name]["node_type"] == NodeTypes.MODEL:
-                if (
-                    np.abs(
-                        self._network.nodes[node_name][
-                            "node_class"
-                        ].stop_criterion_energy
-                    )
-                    > self._stop_criterion_energy
-                ):
-                    return True
-                if (
-                    np.abs(
-                        self._network.nodes[node_name][
-                            "node_class"
-                        ].stop_criterion_momentum
-                    )
-                    > self._stop_criterion_momentum
-                ):
-                    return True
-                if (
-                    np.abs(
-                        self._network.nodes[node_name]["node_class"].stop_criterion_mass
-                    )
-                    > self._stop_criterion_mass
-                ):
-                    return True
-                if (
-                    np.abs(
-                        self._network.nodes[node_name][
-                            "node_class"
-                        ].stop_criterion_signal
-                    )
-                    > self._stop_criterion_signal
-                ):
-                    return True
-            elif self.network.nodes[node_name]["node_type"] == NodeTypes.BLOCK:
-                if (
-                    np.abs(
-                        self._network.nodes[node_name][
-                            "node_class"
-                        ].stop_criterion_signal
-                    )
-                    > self._stop_criterion_signal
-                ):
-                    return True
-            else:
-                logger.error(
-                    "Node type in simulation nodes not defined: %s.",
-                    self.network.nodes[node_name]["node_type"].value,
-                )
-                raise SystemExit
-
-        return False
-
-    def pre_solve(self: SystemSimpleIterative):
-        self.check_self()
-        self._simulation_nodes = self._models + self._blocks
-
-    def solve(self: SystemSimpleIterative) -> SystemResult:
-        logger.info("Start solver.")
-        logger.info("Pre-solve.")
-        self.pre_solve()
-
-        logger.info("Solve.")
-
-        try:
-            while self.stop_criterion():
-                logger.info(
-                    "Iteration count: %s of %s",
-                    str(self._iteration_counter),
-                    str(self._max_iteration_counter),
-                )
-                for node_name in self._simulation_nodes:
-                    logger.debug("Calculate node %s", node_name)
-
-                    self._network.nodes[node_name]["node_class"].equation()
-
-                    for outlet_port_name in self._network.successors(node_name):
-
-                        if isinstance(
-                            self._network.nodes[node_name]["node_class"].ports[
-                                outlet_port_name
-                            ],
-                            PortState,
-                        ):
-                            if (
-                                self._network.nodes[node_name]["node_class"]
-                                .ports[outlet_port_name]
-                                .state.m_flow
-                                <= 0.0
-                            ):
-                                continue
-
-                        for connected_port_name in self._network.successors(
-                            outlet_port_name
-                        ):
-                            for successor_node_name in self._network.successors(
-                                connected_port_name
-                            ):
-                                logger.debug(
-                                    "Set port %s of node %s with port %s of node %s",
-                                    connected_port_name,
-                                    successor_node_name,
-                                    outlet_port_name,
-                                    node_name,
-                                )
-
-                                if (
-                                    self._network.nodes[node_name]["node_class"]
-                                    .ports[outlet_port_name]
-                                    .port_type
-                                    in [
-                                        PortTypes.STATE_OUTLET,
-                                        PortTypes.STATE_INLET_OUTLET,
-                                    ]
-                                ) and (
-                                    self._network.nodes[successor_node_name][
-                                        "node_class"
-                                    ]
-                                    .ports[connected_port_name]
-                                    .port_type
-                                    in [
-                                        PortTypes.STATE_INLET,
-                                        PortTypes.STATE_INLET_OUTLET,
-                                    ]
-                                ):
-                                    self._network.nodes[successor_node_name][
-                                        "node_class"
-                                    ].ports[connected_port_name].state = (
-                                        self._network.nodes[node_name]["node_class"]
-                                        .ports[outlet_port_name]
-                                        .state
-                                    )
-                                elif (
-                                    self._network.nodes[node_name]["node_class"]
-                                    .ports[outlet_port_name]
-                                    .port_type
-                                    in [
-                                        PortTypes.SIGNAL_OUTLET,
-                                        PortTypes.SIGNAL_INLET_OUTLET,
-                                    ]
-                                ) and (
-                                    self._network.nodes[successor_node_name][
-                                        "node_class"
-                                    ]
-                                    .ports[connected_port_name]
-                                    .port_type
-                                    in [
-                                        PortTypes.SIGNAL_INLET,
-                                        PortTypes.SIGNAL_INLET_OUTLET,
-                                    ]
-                                ):
-                                    self._network.nodes[successor_node_name][
-                                        "node_class"
-                                    ].ports[connected_port_name].signal = (
-                                        self._network.nodes[node_name]["node_class"]
-                                        .ports[outlet_port_name]
-                                        .signal
-                                    )
-
-        except BaseException as e:
-            logger.error("Solver failed.")
-            logger.exception("Error code: %s", str(e))
-
-            models, blocks = self.get_node_results()
-            self._result = SystemResult.from_error(
-                models=models, blocks=blocks, nit=self._iteration_counter
-            )
-            return self._result
-
-        # Post solve
-        logger.info("Post-solve.")
-
-        models, blocks = self.get_node_results()
-
-        if self._iteration_counter > self._max_iteration_counter:
-            logger.info("Solver did not converge.")
-            self._result = SystemResult.from_convergence(
-                models=models, blocks=blocks, nit=self._iteration_counter
-            )
-            return self._result
-
-        logger.info("Solver finished successfully.")
-        self._result = SystemResult.from_success(
-            models=models, blocks=blocks, nit=self._iteration_counter
-        )
-        return self._result
-
-
-# Port classes
-class PortState(BasePortClass):
-    """Class of a state port.
-
-    The state port is a interface in a model and can connect different
-    models with a fluid connection, which links the thermodynamic states.
-
-    """
-
-    def __init__(
-        self: PortState, name: str, port_type: PortTypes, state: BaseStateClass
-    ):
-        """Initialize base port class.
-
-        Init function of the base port class.
-
-        """
-        super().__init__(name=name, port_type=port_type)
-
-        # Class properties
-        self._state = state.copy()
-
-    @property
-    def state(self: PortState) -> BaseStateClass:
-        return self._state
-
-    @state.setter
-    def state(self: PortState, state: BaseStateClass) -> None:
-        self._state = state.copy()
-
-
-class PortSignal(BasePortClass):
-    """Class of a signal port.
-
-    The signal port is a interface in a model and can connect different
-    models with a signal connection, which links values. 
-
-    """
-
-    def __init__(
-        self: PortSignal, name: str, port_type: PortTypes, signal: BaseSignalClass
-    ):
-        """Initialize base port class.
-
-        Init function of the base port class.
-
-        """
-        super().__init__(name=name, port_type=port_type)
-
-        # Class properties
-        self._signal = signal.copy()
-
-    @property
-    def signal(self: PortSignal) -> BaseSignalClass:
-        return self._signal
-
-    @signal.setter
-    def signal(self: PortSignal, signal: BaseSignalClass) -> None:
-        self._signal = signal.copy()
-
-
-# State/ media classes
-class MediumBase(BaseStateClass):
-    """Class of pure or pseudo-pure (mixtures) media.
-
-    The medium class of pure fluids provides the API for all derived
-    medium classes with pure or pseudo-pure (mixtures) behavior, hence only 
-    two state values need to be given to define the state.
-
-    """
-
-    @abstractmethod
-    def set_pT(self: BaseStateClass, p: np.float64, T: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_px(self: BaseStateClass, p: np.float64, x: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_Tx(self: BaseStateClass, T: np.float64, x: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_ph(self: BaseStateClass, p: np.float64, h: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_Th(self: BaseStateClass, T: np.float64, h: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_ps(self: BaseStateClass, p: np.float64, s: np.float64,) -> None:
-        ...
-
-    @abstractmethod
-    def set_Ts(self: BaseStateClass, T: np.float64, s: np.float64,) -> None:
-        ...
-
-
-class MediumHumidAir(BaseStateClass):
-    """Class of binary mixtures media.
-
-    The medium class of binary mixtures provides the API for all derived
-    medium classes with two pure or pseudo-pure but uneven components (e. g. humid air),
-    hence three state values need to be given to define the state.
-
-    """
-
-    @property
-    @abstractmethod
-    def w(self: BaseStateClass) -> np.float64:
-        """Humidity ratio in kg/kg.
-
-        Returns:
-            np.float64: Humidity ratio in kg/kg
-
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def w_gaseous(self: BaseStateClass) -> np.float64:
-        """Humidity ratio of only gaseous water in kg/kg.
-
-        Returns:
-            np.float64: Humidity ratio of only gaseous water in kg/kg
-
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def w_liquid(self: BaseStateClass) -> np.float64:
-        """Humidity ratio of only liquid water in kg/kg.
-
-        Returns:
-            np.float64: Humidity ratio of only liquid water in kg/kg
-
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def w_solid(self: BaseStateClass) -> np.float64:
-        """Humidity ratio of only solid water in kg/kg.
-
-        Returns:
-            np.float64: Humidity ratio of only solid water in kg/kg
-
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def ws(self: MediumHumidAir) -> np.float64:
-        """Humidity ratio at saturation condition.
-
-        Returns:
-            np.float64: Humidity ratio at saturation condition
-
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def phi(self: MediumHumidAir) -> np.float64:
-        """Relative humidity.
-
-        Returns:
-            np.float64: Relative humidity
-
-        """
-        ...
-
-    @abstractmethod
-    def set_pTw(
-        self: BaseStateClass, p: np.float64, T: np.float64, w: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_phw(
-        self: BaseStateClass, p: np.float64, h: np.float64, w: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_Thw(
-        self: BaseStateClass, T: np.float64, h: np.float64, w: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_psw(
-        self: BaseStateClass, p: np.float64, s: np.float64, w: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_Tsw(
-        self: BaseStateClass, T: np.float64, s: np.float64, w: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_pTphi(
-        self: BaseStateClass, p: np.float64, T: np.float64, phi: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_phphi(
-        self: BaseStateClass, p: np.float64, h: np.float64, phi: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_Thphi(
-        self: BaseStateClass, T: np.float64, h: np.float64, phi: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_psphi(
-        self: BaseStateClass, p: np.float64, s: np.float64, phi: np.float64
-    ) -> None:
-        ...
-
-    @abstractmethod
-    def set_Tsphi(
-        self: BaseStateClass, T: np.float64, s: np.float64, phi: np.float64
-    ) -> None:
-        ...
-
-
-# Signal classes
 class SignalBoolean(BaseSignalClass):
     """Signal class.
 

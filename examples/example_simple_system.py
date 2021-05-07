@@ -27,7 +27,7 @@ if __name__ == "__main__":
     output_folder_path.mkdir(parents=True, exist_ok=True)
 
     # Define starting states
-    fluid = CoolPropFluid.new_incomp(fluid=CoolPropIncompPureFluids.WATER)
+    fluid = CoolPropFluid.new_incomp(fluid_name=CoolPropIncompPureFluids.WATER)
     state0 = MediumCoolProp.from_pT(
         p=np.float64(10 ** 5),
         T=np.float64(300),

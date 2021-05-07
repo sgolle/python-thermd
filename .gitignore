@@ -117,3 +117,5 @@ dmypy.json
 # Development environment
 .vscode/
 old/
+logfile.txt
+examples/Output/

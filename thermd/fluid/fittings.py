@@ -61,7 +61,7 @@ class JunctionOneToTwo(BaseFluidOneInletTwoOutlets):
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
             )
-            raise SystemExit
+            raise Exception
 
         # New mass flow fractions
         self._ports[self._port_b1_name].state.m_flow = (
@@ -129,7 +129,7 @@ class JunctionOneToThree(BaseFluidOneInletThreeOutlets):
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
             )
-            raise SystemExit
+            raise Exception
 
         # New mass flow fractions
         self._ports[self._port_b1_name].state.m_flow = (
@@ -206,7 +206,7 @@ class JunctionOneToFour(BaseFluidOneInletFourOutlets):
             logger.error(
                 "Fractions of mass flow not defined correctly: %s.", str(fraction),
             )
-            raise SystemExit
+            raise Exception
 
         # New mass flow fractions
         self._ports[self._port_b1_name].state.m_flow = (
@@ -369,7 +369,7 @@ class JunctionTwoToOne(BaseFluidTwoInletsOneOutlet):
                 self._ports[self._port_a1_name].state.super().__class__.__name__,
                 self._ports[self._port_a2_name].state.super().__class__.__name__,
             )
-            raise SystemExit
+            raise Exception
 
         # New mass flows
         self._ports[self._port_b_name].state.m_flow = (

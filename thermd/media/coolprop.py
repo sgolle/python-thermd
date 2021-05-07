@@ -10,7 +10,7 @@ CoolProp HumidAir library.
 
 from __future__ import annotations
 from enum import Enum, auto
-from typing import List, Type, Union
+from typing import List, Type, Union, Optional
 
 from CoolProp import AbstractState, CoolProp
 from CoolProp.CoolProp import PropsSI
@@ -18,6 +18,7 @@ from CoolProp.HumidAirProp import HAPropsSI
 import math
 import numpy as np
 from scipy import optimize as opt
+from scipy.constants import gas_constant
 from thermd.core import MediumBase, MediumHumidAir, StatePhases
 from thermd.helper import get_logger
 
@@ -421,106 +422,182 @@ class CoolPropFluid:
 
     def __init__(
         self: CoolPropFluid,
-        fluid: Union[
+        fluid_name: Union[
             CoolPropPureFluids,
             List[CoolPropPureFluids],
             CoolPropIncompPureFluids,
             CoolPropIncompMixturesMassBased,
             CoolPropIncompMixturesVolumeBased,
         ],
-        fluid_name: str,
+        fluid_full_name: str,
         fluid_type: CoolPropFluidTypes,
+        fluid_fraction: Optional[List[np.float64]] = None,
     ) -> None:
         """Initialize CoolProp fluid class.
 
         The init function of the CoolProp fluid class.
 
         """
-        self._fluid = fluid
+        if fluid_fraction is None:
+            fluid_fraction = [np.float64(1.0)]
+
+        # Checks
+        if fluid_type in [CoolPropFluidTypes.PURE, CoolPropFluidTypes.INCOMP]:
+            if isinstance(
+                fluid_name, (CoolPropPureFluids, CoolPropIncompPureFluids),
+            ) and isinstance(fluid_fraction, list):
+                if not len(fluid_fraction) == 1 and fluid_fraction[0] == 1.0:
+                    logger.error("Fluid_fraction must equal [1.0].")
+                    raise Exception
+            else:
+                logger.error(
+                    (
+                        "Fluid must be of type CoolPropPureFluids or "
+                        "CoolPropIncompPureFluids and fluid_fraction must "
+                        "be of type list for pure and pure incompressible fluids."
+                    )
+                )
+                raise Exception
+        elif fluid_type == CoolPropFluidTypes.MIXTURE:
+            if isinstance(fluid_name, list) and isinstance(fluid_fraction, list):
+                if not len(fluid_name) == len(fluid_fraction):
+                    logger.error("Length of lists fluid and fluid_fraction not equal.")
+                    raise Exception
+            else:
+                logger.error("Fluid and fluid_fraction must be a list for mixtures.")
+                raise Exception
+        elif fluid_type == CoolPropFluidTypes.INCOMPMIXTURE:
+            if isinstance(
+                fluid_name,
+                (CoolPropIncompMixturesMassBased, CoolPropIncompMixturesVolumeBased),
+            ) and isinstance(fluid_fraction, list):
+                if not len(fluid_fraction) == 2:
+                    logger.error("Length of list fluid_fraction must equal 2.")
+                    raise Exception
+            else:
+                logger.error(
+                    (
+                        "Fluid must be of type CoolPropIncompMixturesMassBased or "
+                        "CoolPropIncompMixturesVolumeBased and fluid_fraction must "
+                        "be of type list for incompressible mixtures."
+                    )
+                )
+                raise Exception
+        else:
+            logger.error("CoolPropFluidTypes not defined correctly.")
+            raise Exception
+
         self._fluid_name = fluid_name
+        self._fluid_full_name = fluid_full_name
         self._fluid_type = fluid_type
+        self._fluid_fraction = fluid_fraction
 
     @classmethod
     def new_pure_fluid(
-        cls: Type[CoolPropFluid], fluid: CoolPropPureFluids,
+        cls: Type[CoolPropFluid], fluid_name: CoolPropPureFluids,
     ) -> CoolPropFluid:
         return cls(
-            fluid=fluid, fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.PURE
+            fluid_name=fluid_name,
+            fluid_full_name=fluid_name.value,
+            fluid_type=CoolPropFluidTypes.PURE,
         )
 
     @classmethod
     def new_mixture(
         cls: Type[CoolPropFluid],
-        fluids: List[CoolPropPureFluids],
+        fluid_names: List[CoolPropPureFluids],
         fractions: List[np.float64],
     ) -> CoolPropFluid:
-        if len(fluids) == len(fractions):
+        if len(fluid_names) == len(fractions):
             if np.array(fractions).sum() == 1.0:
-                fluid_name = str()
-                for i, fluid in enumerate(fluids):
-                    fluid_name += str(fluid)
-                    fluid_name += "[" + str(fractions[i]) + "]"
-                    if i < len(fluids):
-                        fluid_name += "&"
+                fluid_full_name = str()
+                for i, fluid in enumerate(fluid_names):
+                    fluid_full_name += str(fluid)
+                    fluid_full_name += "[" + str(fractions[i]) + "]"
+                    if i < len(fluid_names):
+                        fluid_full_name += "&"
             else:
                 logger.error(
                     "Sum of the fluid fractions must be 1.0: %f != 1.0",
                     np.array(fractions).sum(),
                 )
-                raise SystemExit
+                raise Exception
         else:
             logger.error(
                 "Length of the lists fluids and fractions must be equal: %i == %i",
-                len(fluids),
+                len(fluid_names),
                 len(fractions),
             )
-            raise SystemExit
+            raise Exception
 
         return cls(
-            fluid=fluids, fluid_name=fluid_name, fluid_type=CoolPropFluidTypes.MIXTURE
+            fluid_name=fluid_names,
+            fluid_full_name=fluid_full_name,
+            fluid_type=CoolPropFluidTypes.MIXTURE,
+            fluid_fraction=fractions,
         )
 
     @classmethod
     def new_incomp(
-        cls: Type[CoolPropFluid], fluid: CoolPropIncompPureFluids
+        cls: Type[CoolPropFluid], fluid_name: CoolPropIncompPureFluids
     ) -> CoolPropFluid:
         return cls(
-            fluid=fluid, fluid_name=fluid.value, fluid_type=CoolPropFluidTypes.INCOMP
+            fluid_name=fluid_name,
+            fluid_full_name=fluid_name.value,
+            fluid_type=CoolPropFluidTypes.INCOMP,
         )
 
     @classmethod
     def new_incomp_mass_based(
         cls: Type[CoolPropFluid],
-        fluid: CoolPropIncompMixturesMassBased,
+        fluid_name: CoolPropIncompMixturesMassBased,
         fraction: np.float64,
     ) -> CoolPropFluid:
-        fluid_name = fluid.value + "[" + str(fraction) + "]"
+        fluid_full_name = fluid_name.value + "[" + str(fraction) + "]"
         return cls(
-            fluid=fluid,
             fluid_name=fluid_name,
+            fluid_full_name=fluid_full_name,
             fluid_type=CoolPropFluidTypes.INCOMPMIXTURE,
+            fluid_fraction=[1.0 - fraction, fraction],
         )
 
     @classmethod
     def new_incomp_volume_based(
         cls: Type[CoolPropFluid],
-        fluid: CoolPropIncompMixturesVolumeBased,
+        fluid_name: CoolPropIncompMixturesVolumeBased,
         fraction: np.float64,
     ) -> CoolPropFluid:
-        fluid_name = fluid.value + "[" + str(fraction) + "]"
+        fluid_full_name = fluid_name.value + "[" + str(fraction) + "]"
         return cls(
-            fluid=fluid,
             fluid_name=fluid_name,
+            fluid_full_name=fluid_full_name,
             fluid_type=CoolPropFluidTypes.INCOMPMIXTURE,
+            fluid_fraction=[1.0 - fraction, fraction],
         )
 
     @property
-    def fluid_name(self: CoolPropFluid) -> str:
+    def fluid_name(
+        self: CoolPropFluid,
+    ) -> Union[
+        CoolPropPureFluids,
+        List[CoolPropPureFluids],
+        CoolPropIncompPureFluids,
+        CoolPropIncompMixturesMassBased,
+        CoolPropIncompMixturesVolumeBased,
+    ]:
         return self._fluid_name
+
+    @property
+    def fluid_full_name(self: CoolPropFluid) -> str:
+        return self._fluid_full_name
 
     @property
     def fluid_type(self: CoolPropFluid) -> CoolPropFluidTypes:
         return self._fluid_type
+
+    @property
+    def fluid_fraction(self: CoolPropFluid) -> List[np.float64]:
+        return self._fluid_fraction
 
 
 # Media classes as derivation of base state class
@@ -580,9 +657,9 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(CoolProp.PT_INPUTS, p, T)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
@@ -602,9 +679,9 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(CoolProp.PQ_INPUTS, p, x)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
@@ -624,9 +701,9 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(CoolProp.QT_INPUTS, x, T)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
@@ -646,9 +723,9 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(CoolProp.HmassP_INPUTS, h, p)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
@@ -668,9 +745,9 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(CoolProp.HmassT_INPUTS, h, T)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
@@ -691,15 +768,39 @@ class MediumCoolProp(MediumBase):
             logger.error(
                 "Incompressible fluids and mixtures must use the INCOMP backend."
             )
-            raise SystemExit
+            raise Exception
 
-        state = AbstractState(backend.value, fluid.fluid_name)
+        state = AbstractState(backend.value, fluid.fluid_full_name)
         state.update(input_type.value, prop1, prop2)
         return cls(state=state, fluid=fluid, backend=backend, m_flow=m_flow)
 
     @property
     def fluid(self: MediumCoolProp) -> CoolPropFluid:
         return self._fluid
+
+    @property
+    def fluid_name(
+        self: MediumCoolProp,
+    ) -> Union[
+        CoolPropPureFluids,
+        List[CoolPropPureFluids],
+        CoolPropIncompPureFluids,
+        CoolPropIncompMixturesMassBased,
+        CoolPropIncompMixturesVolumeBased,
+    ]:
+        return self._fluid.fluid_name
+
+    @property
+    def fluid_full_name(self: MediumCoolProp) -> str:
+        return self._fluid.fluid_full_name
+
+    @property
+    def fluid_type(self: MediumCoolProp) -> CoolPropFluidTypes:
+        return self._fluid.fluid_type
+
+    @property
+    def fluid_fraction(self: MediumCoolProp) -> List[np.float64]:
+        return self._fluid.fluid_fraction
 
     @property
     def backend(self: MediumCoolProp) -> CoolPropBackends:
@@ -816,14 +917,24 @@ class MediumCoolProp(MediumBase):
         return np.float64(self._state.rhomolar())
 
     @property
-    def gas_constant(self: MediumCoolProp) -> np.float64:
-        """Specific gas constant in J/mol/K.
+    def R_s(self: MediumCoolProp) -> np.float64:
+        """Specific gas constant in J/kg/K.
 
         Returns:
-            np.float64: Specific gas constant in J/mol/K
+            np.float64: Specific gas constant in J/kg/K
 
         """
-        return np.float64(self._state.gas_constant())
+        return np.float64(self._state.gas_constant() / self._state.M())
+
+    @property
+    def M(self: MediumBase) -> np.float64:
+        """Molar mass in kg/mol.
+
+        Returns:
+            np.float64: Molar mass in kg/mol
+
+        """
+        return np.float64(self._state.M())
 
     @property
     def m_flow(self: MediumCoolProp) -> np.float64:
@@ -844,6 +955,26 @@ class MediumCoolProp(MediumBase):
 
         """
         self._m_flow = value
+
+    @property
+    def n_flow(self: MediumCoolProp) -> np.float64:
+        """Amount of substance flow in mol/s.
+
+        Returns:
+            np.float64: Amount of substance flow in mol/s
+
+        """
+        return self._m_flow / self._state.M()
+
+    @n_flow.setter
+    def n_flow(self: MediumCoolProp, value: np.float64) -> None:
+        """Amount of substance flow in mol/s.
+
+        Returns:
+            np.float64: Amount of substance flow in mol/s
+
+        """
+        self._m_flow = value * self._state.M()
 
     @property
     def smass(self: MediumCoolProp) -> np.float64:
@@ -928,6 +1059,171 @@ class MediumCoolProp(MediumBase):
 
         return StatePhases(self._state.phase())
 
+    @property
+    def Gmass(self: MediumCoolProp) -> np.float64:
+        """Mass specific Gibbs energy in J/kg.
+
+        Returns:
+            np.float64: Mass specific Gibbs energy in J/kg
+
+        """
+        ...
+        return np.float64(self._state.gibbsmass())
+
+    @property
+    def Gmolar(self: MediumCoolProp) -> np.float64:
+        """Molar specific Gibbs energy in J/mol.
+
+        Returns:
+            np.float64: Molar specific Gibbs energy in J/mol
+
+        """
+        ...
+        return np.float64(self._state.gibbsmolar())
+
+    @property
+    def Helmholtzmass(self: MediumCoolProp) -> np.float64:
+        """Mass specific Helmholtz energy in J/kg.
+
+        Returns:
+            np.float64: Mass specific Helmholtz energy in J/kg
+
+        """
+        ...
+        return np.float64(self._state.helmholtzmass())
+
+    @property
+    def Helmholtzmolar(self: MediumCoolProp) -> np.float64:
+        """Molar specific Helmholtz energy in J/mol.
+
+        Returns:
+            np.float64: Molar specific Helmholtz energy in J/mol
+
+        """
+        ...
+        return np.float64(self._state.helmholtzmolar())
+
+    @property
+    def p_critical(self: MediumCoolProp) -> np.float64:
+        """Pressure at the critical point in Pa.
+
+        Returns:
+            np.float64: Pressure at the critical point in Pa
+
+        """
+        ...
+        return np.float64(self._state.p_critical())
+
+    @property
+    def p_reducing(self: MediumCoolProp) -> np.float64:
+        """Pressure at reducing point in Pa.
+
+        Returns:
+            np.float64: Pressure at reducing point in Pa
+
+        """
+        ...
+        return np.float64(self._state.p_reducing())
+
+    @property
+    def p_triple(self: MediumCoolProp) -> np.float64:
+        """Pressure at triple point in Pa.
+
+        Returns:
+            np.float64: Pressure at triple point in Pa
+
+        """
+        ...
+        return np.float64(self._state.p_triple())
+
+    @property
+    def rhomass_critical(self: MediumCoolProp) -> np.float64:
+        """Mass density at critical point in kg/m**3.
+
+        Returns:
+            np.float64: Mass density at critical point in kg/m**3
+
+        """
+        ...
+        return np.float64(self._state.rhomass_critical())
+
+    @property
+    def rhomass_reducing(self: MediumCoolProp) -> np.float64:
+        """Mass density at reducing point in kg/m**3.
+
+        Returns:
+            np.float64: Mass density at reducing point in kg/m**3
+
+        """
+        ...
+        return np.float64(self._state.rhomass_reducing())
+
+    @property
+    def rhomolar_critical(self: MediumCoolProp) -> np.float64:
+        """Molar density at critical point in mol/m**3.
+
+        Returns:
+            np.float64: Molar density at critical point in mol/m**3
+
+        """
+        ...
+        return np.float64(self._state.rhomolar_critical())
+
+    @property
+    def rhomolar_reducing(self: MediumCoolProp) -> np.float64:
+        """Molar density at reducing point in mol/m**3.
+
+        Returns:
+            np.float64: Molar density at reducing point in mol/m**3
+
+        """
+        ...
+        return np.float64(self._state.rhomolar_reducing())
+
+    @property
+    def surface_tension(self: MediumCoolProp) -> np.float64:
+        """Surface tension in N/m.
+
+        Returns:
+            np.float64: Surface tension in N/m
+
+        """
+        ...
+        return np.float64(self._state.surface_tension())
+
+    @property
+    def T_critical(self: MediumCoolProp) -> np.float64:
+        """Temperature at critical point in K.
+
+        Returns:
+            np.float64: Temperature at critical point in K
+
+        """
+        ...
+        return np.float64(self._state.T_critical())
+
+    @property
+    def T_reducing(self: MediumCoolProp) -> np.float64:
+        """Temperature at reducing point in K.
+
+        Returns:
+            np.float64: Temperature at reducing point in K
+
+        """
+        ...
+        return np.float64(self._state.T_reducing())
+
+    @property
+    def T_triple(self: MediumCoolProp) -> np.float64:
+        """Temperature at triple point in K.
+
+        Returns:
+            np.float64: Temperature at triple point in K
+
+        """
+        ...
+        return np.float64(self._state.T_triple())
+
     def set_pT(self: MediumCoolProp, p: np.float64, T: np.float64) -> None:
         self._state.update(CoolProp.PT_INPUTS, p, T)
 
@@ -967,10 +1263,6 @@ class MediumCoolProp(MediumBase):
     ) -> List[np.float64]:
         return [np.float64(self._state.keyed_output(k)) for k in output_types]
 
-    @property
-    def fluid_name(self: MediumCoolProp) -> str:
-        return self._fluid.fluid_name
-
 
 class MediumCoolPropHumidAir(MediumHumidAir):
     """MediumCoolPropHumidAir class.
@@ -999,8 +1291,10 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         self._m_flow = m_flow
 
         # Constants
-        self._R_air = np.float64(287.0474730938159)
-        self._R_water = np.float64(461.5230869726723)
+        self._M_air = np.float64(PropsSI("M", CoolPropPureFluids.AIR.name))
+        self._M_water = np.float64(PropsSI("M", CoolPropPureFluids.WATER.name))
+        self._R_air = gas_constant / self._M_air
+        self._R_water = gas_constant / self._M_water
 
         # self._cp_air_poly = np.poly1d(
         #     [-1.02982783e-07, 4.29730845e-04, 1.46305349e-02, 1.00562420e03]
@@ -1036,22 +1330,36 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         # self._delta_h_evaporation = np.float64(2500900)
         self._delta_h_melting = np.float64(333400)
 
-        self._T_triple = np.float64(273.16)
-        self._p_triple = np.float64(611.657 / 10 ** 5)
+        self._T_triple = np.float64(PropsSI("T_triple", CoolPropPureFluids.WATER.name))
+        self._p_triple = np.float64(611.657)  # lower limit in CoolProp
 
         # Reference state
         self._h_humid_air_0 = np.float64(
-            HAPropsSI("H", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "R", 0)
+            HAPropsSI("H", "T", self._T_triple, "P", self._p_triple, "R", 0)
         )
         self._h_water_liquid_0 = np.float64(
-            PropsSI("H", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "Water")
+            PropsSI(
+                "H",
+                "T",
+                self._T_triple,
+                "P",
+                self._p_triple,
+                CoolPropPureFluids.WATER.name,
+            )
         )
         self._h_water_ice_0 = np.float64(0.0)
         self._s_humid_air_0 = np.float64(
-            HAPropsSI("S", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "R", 0)
+            HAPropsSI("S", "T", self._T_triple, "P", self._p_triple, "R", 0)
         )
         self._s_water_liquid_0 = np.float64(
-            PropsSI("S", "T", self._T_triple, "P", self._p_triple * 10 ** 5, "Water")
+            PropsSI(
+                "S",
+                "T",
+                self._T_triple,
+                "P",
+                self._p_triple,
+                CoolPropPureFluids.WATER.name,
+            )
         )
         self._s_water_ice_0 = np.float64(0.0)
 
@@ -1085,7 +1393,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ) -> MediumCoolPropHumidAir:
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity phi is not between 0 and 1: %s.", str(phi))
-            raise SystemExit
+            raise Exception
         w = HAPropsSI("W", "T", T, "P", p, "R", phi)
         return cls(p=p, T=T, w=w, m_flow=m_flow)
 
@@ -1114,7 +1422,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def cvmass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1141,7 +1449,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def hmass(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1162,7 +1470,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def conductivity(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1230,27 +1538,45 @@ class MediumCoolPropHumidAir(MediumHumidAir):
             np.float64: Density in mol/m**3
 
         """
-        logger.error("Not implemented.")
-        raise SystemExit
+        return self.rhomass / self.M
 
     @property
-    def gas_constant(self: MediumCoolPropHumidAir) -> np.float64:
-        """Specific gas constant in J/mol/K.
+    def R_s(self: MediumCoolPropHumidAir) -> np.float64:
+        """Specific gas constant in J/kg/K.
 
         Returns:
-            np.float64: Specific gas constant in J/mol/K
+            np.float64: Specific gas constant in J/kg/K
 
         """
         if self._w <= self.ws:  # under-saturated
-            gas_constant = (1 - self._w / (1 + self._w)) * self._R_air + (
+            specific_gas_constant = (1 - self._w / (1 + self._w)) * self._R_air + (
                 self._w / (1 + self._w)
             ) * self._R_water
         else:  # saturated
-            gas_constant = (1 - self.ws / (1 + self.ws)) * self._R_air + (
+            specific_gas_constant = (1 - self.ws / (1 + self.ws)) * self._R_air + (
                 self.ws / (1 + self.ws)
             ) * self._R_water
 
-        return gas_constant
+        return specific_gas_constant
+
+    @property
+    def M(self: MediumBase) -> np.float64:
+        """Molar mass in kg/mol.
+
+        Returns:
+            np.float64: Molar mass in kg/mol
+
+        """
+        if self._w <= self.ws:  # under-saturated
+            M = (1 - self._w / (1 + self._w)) * self._M_air + (
+                self._w / (1 + self._w)
+            ) * self._M_water
+        else:  # saturated
+            M = (1 - self.ws / (1 + self.ws)) * self._M_air + (
+                self.ws / (1 + self.ws)
+            ) * self._M_water
+
+        return M
 
     @property
     def m_flow(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1273,6 +1599,26 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         self._m_flow = value
 
     @property
+    def n_flow(self: MediumCoolProp) -> np.float64:
+        """Amount of substance flow in mol/s.
+
+        Returns:
+            np.float64: Amount of substance flow in mol/s
+
+        """
+        return self._m_flow / self.M
+
+    @n_flow.setter
+    def n_flow(self: MediumCoolProp, value: np.float64) -> None:
+        """Amount of substance flow in mol/s.
+
+        Returns:
+            np.float64: Amount of substance flow in mol/s
+
+        """
+        self._m_flow = value * self.M
+
+    @property
     def smass(self: MediumCoolPropHumidAir) -> np.float64:
         """Mass-specific entropy in J/kg/K.
 
@@ -1291,7 +1637,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def T(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1328,7 +1674,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def x(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1339,7 +1685,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         """
         logger.error("Not implemented.")
-        raise SystemExit
+        raise Exception
 
     @property
     def Z(self: MediumCoolPropHumidAir) -> np.float64:
@@ -1373,7 +1719,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                 str(self._p),
                 str(self._T),
             )
-            raise SystemExit
+            raise Exception
 
         return StatePhases(2)
 
@@ -1419,7 +1765,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                 w_liquid = 0.0
             else:
                 logger.error("Humid air is not defined at T = T_triple.")
-                raise SystemExit
+                raise Exception
 
         return np.float64(w_liquid)
 
@@ -1440,7 +1786,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                 w_solid = self._w - self.ws
             else:
                 logger.error("Humid air is not defined at T = T_triple.")
-                raise SystemExit
+                raise Exception
 
         return np.float64(w_solid)
 
@@ -1560,7 +1906,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
                 logger.error(
                     "Humid air relative humidity is not between 0 and 1: %f", phi
                 )
-                raise SystemExit
+                raise Exception
 
         return w
 
@@ -1608,7 +1954,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
             else:
                 logger.error("Humid air is not defined at T = T_triple.")
-                raise SystemExit
+                raise Exception
 
         return np.float64(h)
 
@@ -1653,7 +1999,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
             else:
                 logger.error("Humid air is not defined at T = T_triple.")
-                raise SystemExit
+                raise Exception
 
         return np.float64(s)
 
@@ -1761,7 +2107,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
     ) -> None:
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity is not between 0 and 1: %s", phi)
-            raise SystemExit
+            raise Exception
 
         self._p = p
         self._T = T
@@ -1774,7 +2120,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity is not between 0 and 1: %s", phi)
-            raise SystemExit
+            raise Exception
 
         w = np.float64(HAPropsSI("W", "P", p, "H", h, "R", phi))
         self._p = p
@@ -1788,7 +2134,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity is not between 0 and 1: %s", phi)
-            raise SystemExit
+            raise Exception
 
         w = np.float64(HAPropsSI("W", "T", T, "H", h, "R", phi))
         self._p = self._p_Thw(T=T, h=h, w=w)
@@ -1802,7 +2148,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity is not between 0 and 1: %s", phi)
-            raise SystemExit
+            raise Exception
 
         w = np.float64(HAPropsSI("W", "P", p, "S", s, "R", phi))
         self._p = p
@@ -1816,7 +2162,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
 
         if not 0.0 <= phi <= 1.0:
             logger.error("Relative humidity is not between 0 and 1: %s", phi)
-            raise SystemExit
+            raise Exception
 
         w = np.float64(HAPropsSI("W", "T", T, "S", s, "R", phi))
         self._p = self._p_Tsw(T=T, s=s, w=w)
@@ -1824,7 +2170,7 @@ class MediumCoolPropHumidAir(MediumHumidAir):
         self._w = w
 
     @property
-    def fluid_name(self: MediumCoolPropHumidAir) -> str:
+    def fluid_full_name(self: MediumCoolPropHumidAir) -> str:
         return "Humid Air"
 
 
