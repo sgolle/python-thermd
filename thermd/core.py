@@ -75,14 +75,14 @@ class SystemResult(BaseResultClass):
     success: bool
     status: np.int8
     message: str
-    nit: np.int16
+    nit: np.uint16
 
     @classmethod
     def from_success(
         cls: Type[SystemResult],
         models: Optional[Dict[str, ModelResult]],
         blocks: Optional[Dict[str, BlockResult]],
-        nit: np.int16,
+        nit: np.uint16,
     ) -> SystemResult:
         return cls(
             models=models,
@@ -98,7 +98,7 @@ class SystemResult(BaseResultClass):
         cls: Type[SystemResult],
         models: Optional[Dict[str, ModelResult]],
         blocks: Optional[Dict[str, BlockResult]],
-        nit: np.int16,
+        nit: np.uint16,
     ) -> SystemResult:
         return cls(
             models=models,
@@ -114,7 +114,7 @@ class SystemResult(BaseResultClass):
         cls: Type[SystemResult],
         models: Optional[Dict[str, ModelResult]],
         blocks: Optional[Dict[str, BlockResult]],
-        nit: np.int16,
+        nit: np.uint16,
     ) -> SystemResult:
         return cls(
             models=models,
@@ -211,7 +211,8 @@ class BaseSystemClass(ABC):
         self._network.is_frozen()
 
     def add_model(
-        self: BaseSystemClass, node_class: BaseModelClass,
+        self: BaseSystemClass,
+        node_class: BaseModelClass,
     ):
 
         logger.info("Add model: %s", node_class.name)
@@ -252,7 +253,8 @@ class BaseSystemClass(ABC):
                 raise Exception
 
     def add_block(
-        self: BaseSystemClass, node_class: BaseBlockClass,
+        self: BaseSystemClass,
+        node_class: BaseBlockClass,
     ):
 
         logger.info("Add block: %s", node_class.name)
@@ -287,7 +289,9 @@ class BaseSystemClass(ABC):
                 raise Exception
 
     def connect(
-        self: BaseSystemClass, port1: BasePortClass, port2: BasePortClass,
+        self: BaseSystemClass,
+        port1: BasePortClass,
+        port2: BasePortClass,
     ):
         if self._network.has_edge(port1.name, port2.name):
             logger.error(
@@ -304,14 +308,18 @@ class BaseSystemClass(ABC):
             and port2.port_type == PortTypes.FLUID_INLET
         ):
             self._network.add_edge(
-                port1.name, port2.name, connection_type=ConnectionTypes.FLUID,
+                port1.name,
+                port2.name,
+                connection_type=ConnectionTypes.FLUID,
             )
         elif (
             port1.port_type == PortTypes.SIGNAL_OUTLET
             and port2.port_type == PortTypes.SIGNAL_INLET
         ):
             self._network.add_edge(
-                port1.name, port2.name, connection_type=ConnectionTypes.SIGNAL,
+                port1.name,
+                port2.name,
+                connection_type=ConnectionTypes.SIGNAL,
             )
         else:
             logger.error(
@@ -401,7 +409,12 @@ class BaseSystemClass(ABC):
         )
         signals_results = list()
         signals_results.append(
-            ["Node name", "Node type", "Port name", "Signal value",]
+            [
+                "Node name",
+                "Node type",
+                "Port name",
+                "Signal value",
+            ]
         )
         if model_results is not None:
             for model_name, model_result in model_results.items():
@@ -942,7 +955,9 @@ class BasePortClass(ABC):
     """
 
     def __init__(
-        self: BasePortClass, name: str, port_type: PortTypes,
+        self: BasePortClass,
+        name: str,
+        port_type: PortTypes,
     ):
         """Initialize base port class.
 
@@ -996,7 +1011,7 @@ class PortSignal(BasePortClass):
     """Class of a signal port.
 
     The signal port is a interface in a model and can connect different
-    models with a signal connection, which links values. 
+    models with a signal connection, which links values.
 
     """
 
@@ -1303,7 +1318,7 @@ class MediumBase(BaseStateClass):
     """Class of pure or pseudo-pure (mixtures) media.
 
     The medium class of pure fluids provides the API for all derived
-    medium classes with pure or pseudo-pure (mixtures) behavior, hence only 
+    medium classes with pure or pseudo-pure (mixtures) behavior, hence only
     two state values need to be given to define the state.
 
     """
@@ -1468,31 +1483,59 @@ class MediumBase(BaseStateClass):
         ...
 
     @abstractmethod
-    def set_pT(self: MediumBase, p: np.float64, T: np.float64,) -> None:
+    def set_pT(
+        self: MediumBase,
+        p: np.float64,
+        T: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_px(self: MediumBase, p: np.float64, x: np.float64,) -> None:
+    def set_px(
+        self: MediumBase,
+        p: np.float64,
+        x: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_Tx(self: MediumBase, T: np.float64, x: np.float64,) -> None:
+    def set_Tx(
+        self: MediumBase,
+        T: np.float64,
+        x: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_ph(self: MediumBase, p: np.float64, h: np.float64,) -> None:
+    def set_ph(
+        self: MediumBase,
+        p: np.float64,
+        h: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_Th(self: MediumBase, T: np.float64, h: np.float64,) -> None:
+    def set_Th(
+        self: MediumBase,
+        T: np.float64,
+        h: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_ps(self: MediumBase, p: np.float64, s: np.float64,) -> None:
+    def set_ps(
+        self: MediumBase,
+        p: np.float64,
+        s: np.float64,
+    ) -> None:
         ...
 
     @abstractmethod
-    def set_Ts(self: MediumBase, T: np.float64, s: np.float64,) -> None:
+    def set_Ts(
+        self: MediumBase,
+        T: np.float64,
+        s: np.float64,
+    ) -> None:
         ...
 
 
